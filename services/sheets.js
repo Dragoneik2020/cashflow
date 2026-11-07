@@ -69,7 +69,7 @@ async function batchGetAll(refreshToken, spreadsheetId, entities) {
   if (!entities || entities.length === 0) return {};
   const auth = authClient(refreshToken);
   const sheets = google.sheets({ version: 'v4', auth });
-  const ranges = entities.map(e => `${sheetName(e)}!A2:Z`);
+  const ranges = entities.map(e => `${sheetName(e)}!A2:${String.fromCharCode(64 + SHEET_HEADERS[sheetName(e)].length)}`);
   const res = await sheets.spreadsheets.values.batchGet({ spreadsheetId, ranges });
   const out = {};
   entities.forEach((e, i) => {
@@ -89,7 +89,7 @@ async function getAll(refreshToken, spreadsheetId, entity) {
   const auth = authClient(refreshToken);
   const sheets = google.sheets({ version: 'v4', auth });
   const name = sheetName(entity);
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${name}!A2:Z` });
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${name}!A2:${String.fromCharCode(64 + SHEET_HEADERS[name].length)}` });
   const rows = res.data.values || [];
   const headers = SHEET_HEADERS[name];
   return rows.map((r, idx) => {
@@ -197,23 +197,24 @@ async function ensureSheets(refreshToken, spreadsheetId) {
   await ensureHeaders(refreshToken, spreadsheetId, sheets);
 }
 
+// (ensureHeaders defined below)
+
 async function ensureHeaders(refreshToken, spreadsheetId, sheetsApi) {
   const sheets = sheetsApi || google.sheets({ version: 'v4', auth: authClient(refreshToken) });
-  for (const [title, headers] of Object.entries(SHEET_HEADERS)) {
+  await Promise.all(Object.entries(SHEET_HEADERS).map(async ([title, headers]) => {
     try {
       const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${title}!1:1` });
       const current = (res.data.values && res.data.values[0]) || [];
       if (current.length === 0) {
         await sheets.spreadsheets.values.update({ spreadsheetId, range: `${title}!A1:${String.fromCharCode(64 + headers.length)}1`, valueInputOption: 'RAW', requestBody: { values: [headers] } });
       } else if (current.length < headers.length) {
-        // agregar columnas faltantes al final del encabezado
         const missing = headers.slice(current.length);
         await sheets.spreadsheets.values.update({ spreadsheetId, range: `${title}!${String.fromCharCode(65 + current.length)}1:${String.fromCharCode(64 + headers.length)}1`, valueInputOption: 'RAW', requestBody: { values: [missing] } });
       }
     } catch (e) {
       // hoja puede no existir; ignorar
     }
-  }
+  }));
 }
 
 // Mapeos inventario
