@@ -320,6 +320,35 @@ app.post('/pedidos', requireAuth, async (req, res) => {
   res.redirect('/pedidos');
 });
 
+app.get('/pedidos/:row/edit', requireAuth, async (req, res) => {
+  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
+  const pedido = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));
+  const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+  res.render('pedidos/form', { title: 'Editar pedido', tenant: req.tenant, user: req.user, pedido, proveedores: proveedores.map(sheets.rowToProveedor), action: `/pedidos/${req.params.row}/edit` });
+});
+
+app.post('/pedidos/:row/edit', requireAuth, async (req, res) => {
+  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
+  const existing = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));
+  if (existing) {
+    const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+    const prov = proveedores.map(sheets.rowToProveedor).find(p => p.id === req.body.proveedorId);
+    const cantidad = parseFloat(req.body.cantidad) || 0;
+    const precio = parseFloat(req.body.precioUnit) || 0;
+    existing.fecha = req.body.fecha || existing.fecha;
+    existing.proveedorId = req.body.proveedorId;
+    existing.proveedor = prov ? prov.nombre : req.body.proveedor;
+    existing.descripcion = req.body.descripcion;
+    existing.cantidad = cantidad;
+    existing.precioUnit = precio;
+    existing.total = cantidad * precio;
+    existing.estado = req.body.estado || existing.estado;
+    existing.notas = req.body.notas;
+    await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', req.params.row, sheets.pedidoToRow(existing));
+  }
+  res.redirect('/pedidos');
+});
+
 app.post('/pedidos/:row/estado', requireAuth, async (req, res) => {
   const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
   const existing = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));

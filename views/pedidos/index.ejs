@@ -41,6 +41,7 @@
           </form>
         </td>
         <td class="p-3 text-right space-x-1">
+          <a href="/pedidos/<%= p._row %>/edit" class="text-blue-600 hover:underline text-xs">Editar</a>
           <% if (p.estado !== 'Convertido a ingreso') { %>
           <form action="/pedidos/<%= p._row %>/convertir-ingreso" method="POST" class="inline" onsubmit="return confirm('¿Pasar el monto del pedido a Ingresos?')">
             <button class="text-green-600 hover:underline text-xs">→ Ingreso</button>
