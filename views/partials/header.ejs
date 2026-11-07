@@ -23,6 +23,10 @@
         <a href="/ingresos" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Ingresos'?'active':'' %>">Ingresos</a>
         <a href="/egresos" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Egresos'?'active':'' %>">Egresos</a>
         <a href="/flujo" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Flujo de caja'?'active':'' %>">Flujo de caja</a>
+        <a href="/inventario" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Inventario'?'active':'' %>">Inventario</a>
+        <% if (user && user.role === 'admin') { %>
+        <a href="/usuarios" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Usuarios'?'active':'' %>">Usuarios</a>
+        <% } %>
       </nav>
       <div class="p-3 border-t border-slate-700 text-sm">
         <div class="truncate"><%= user ? user.name : '' %></div>

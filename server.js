@@ -84,6 +84,9 @@ async function requireAuth(req, res, next) {
       console.error('Error creando spreadsheet:', e.message);
     }
   }
+  if (req.tenant && req.tenant.spreadsheetId) {
+    try { await sheets.ensureSheets(user.refreshToken, req.tenant.spreadsheetId); } catch (e) { console.error('ensureSheets:', e.message); }
+  }
   next();
 }
 
@@ -92,6 +95,16 @@ app.locals.money = (n) => {
   const num = parseFloat(n) || 0;
   return num.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 };
+
+// Roles
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).send('Sin permisos para esta acción.');
+    }
+    next();
+  };
+}
 
 // Routes
 app.get('/', (req, res) => {
@@ -199,7 +212,7 @@ app.put('/proveedores/:row', requireAuth, async (req, res) => {
   res.redirect('/proveedores');
 });
 
-app.delete('/proveedores/:row', requireAuth, async (req, res) => {
+app.delete('/proveedores/:row', requireAuth, requireRole('admin'), async (req, res) => {
   await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor', req.params.row);
   res.redirect('/proveedores');
 });
@@ -247,7 +260,7 @@ app.post('/pedidos/:row/estado', requireAuth, async (req, res) => {
   res.redirect('/pedidos');
 });
 
-app.delete('/pedidos/:row', requireAuth, async (req, res) => {
+app.delete('/pedidos/:row', requireAuth, requireRole('admin'), async (req, res) => {
   await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', req.params.row);
   res.redirect('/pedidos');
 });
@@ -276,7 +289,7 @@ app.post('/ingresos', requireAuth, async (req, res) => {
   res.redirect('/ingresos');
 });
 
-app.delete('/ingresos/:row', requireAuth, async (req, res) => {
+app.delete('/ingresos/:row', requireAuth, requireRole('admin'), async (req, res) => {
   await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', req.params.row);
   res.redirect('/ingresos');
 });
@@ -307,9 +320,100 @@ app.post('/egresos', requireAuth, async (req, res) => {
   res.redirect('/egresos');
 });
 
-app.delete('/egresos/:row', requireAuth, async (req, res) => {
+app.delete('/egresos/:row', requireAuth, requireRole('admin'), async (req, res) => {
   await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'egreso', req.params.row);
   res.redirect('/egresos');
+});
+
+// Inventario
+app.get('/inventario', requireAuth, async (req, res) => {
+  await sheets.ensureSheets(req.user.refreshToken, req.tenant.spreadsheetId);
+  const items = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario');
+  const movs = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'movimiento');
+  res.render('inventario/index', { title: 'Inventario', tenant: req.tenant, user: req.user, items: items.map(sheets.rowToInventario), movimientos: movs.map(sheets.rowToMovimiento).reverse().slice(0, 20) });
+});
+
+app.get('/inventario/nuevo', requireAuth, (req, res) => {
+  res.render('inventario/form', { title: 'Nuevo producto', tenant: req.tenant, user: req.user, item: null, action: '/inventario' });
+});
+
+app.post('/inventario', requireAuth, async (req, res) => {
+  const i = {
+    id: sheets.uuidv4(),
+    producto: req.body.producto,
+    categoria: req.body.categoria,
+    cantidad: parseFloat(req.body.cantidad) || 0,
+    unidad: req.body.unidad,
+    precioCosto: parseFloat(req.body.precioCosto) || 0,
+    precioVenta: parseFloat(req.body.precioVenta) || 0,
+    proveedor: req.body.proveedor,
+    stockMinimo: parseFloat(req.body.stockMinimo) || 0,
+    notas: req.body.notas,
+    actualizado: new Date().toISOString().slice(0, 10),
+  };
+  await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario', sheets.inventarioToRow(i));
+  res.redirect('/inventario');
+});
+
+app.get('/inventario/:row/edit', requireAuth, async (req, res) => {
+  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario');
+  const item = list.map(sheets.rowToInventario).find(x => String(x._row) === String(req.params.row));
+  res.render('inventario/form', { title: 'Editar producto', tenant: req.tenant, user: req.user, item, action: `/inventario/${req.params.row}` });
+});
+
+app.post('/inventario/:row/edit', requireAuth, async (req, res) => {
+  // method-override not used here; handle update via hidden _method? We'll accept POST with ?_method=PUT too.
+  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario');
+  const existing = list.map(sheets.rowToInventario).find(x => String(x._row) === String(req.params.row));
+  if (existing) {
+    const i = {
+      id: existing.id,
+      producto: req.body.producto,
+      categoria: req.body.categoria,
+      cantidad: parseFloat(req.body.cantidad) || 0,
+      unidad: req.body.unidad,
+      precioCosto: parseFloat(req.body.precioCosto) || 0,
+      precioVenta: parseFloat(req.body.precioVenta) || 0,
+      proveedor: req.body.proveedor,
+      stockMinimo: parseFloat(req.body.stockMinimo) || 0,
+      notas: req.body.notas,
+      actualizado: new Date().toISOString().slice(0, 10),
+    };
+    await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario', req.params.row, sheets.inventarioToRow(i));
+  }
+  res.redirect('/inventario');
+});
+
+app.post('/inventario/:row/movimiento', requireAuth, async (req, res) => {
+  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario');
+  const item = list.map(sheets.rowToInventario).find(x => String(x._row) === String(req.params.row));
+  if (item) {
+    const cantidad = parseFloat(req.body.cantidad) || 0;
+    const tipo = req.body.tipo; // Entrada | Salida
+    const nuevoStock = tipo === 'Salida' ? (parseFloat(item.cantidad) || 0) - cantidad : (parseFloat(item.cantidad) || 0) + cantidad;
+    // registrar movimiento
+    const m = {
+      id: sheets.uuidv4(),
+      fecha: new Date().toISOString().slice(0, 10),
+      productoId: item.id,
+      producto: item.producto,
+      tipo,
+      cantidad,
+      motivo: req.body.motivo,
+      notas: req.body.notas,
+    };
+    await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'movimiento', sheets.movimientoToRow(m));
+    // actualizar stock
+    item.cantidad = nuevoStock;
+    item.actualizado = new Date().toISOString().slice(0, 10);
+    await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario', req.params.row, sheets.inventarioToRow(item));
+  }
+  res.redirect('/inventario');
+});
+
+app.delete('/inventario/:row', requireAuth, requireRole('admin'), async (req, res) => {
+  await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario', req.params.row);
+  res.redirect('/inventario');
 });
 
 // Flujo de caja
@@ -323,6 +427,85 @@ app.get('/flujo', requireAuth, async (req, res) => {
   let saldo = 0;
   movs.forEach(m => { saldo += m.monto; m.saldo = saldo; });
   res.render('flujo', { title: 'Flujo de caja', tenant: req.tenant, user: req.user, movs });
+});
+
+// Exportación CSV
+function toCSV(headers, rows) {
+  const esc = (v) => {
+    const s = v === null || v === undefined ? '' : String(v);
+    if (/[",\\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  };
+  const lines = [headers.map(esc).join(',')];
+  rows.forEach(r => lines.push(r.map(esc).join(',')));
+  return lines.join('\\n');
+}
+
+app.get('/export/:entity', requireAuth, async (req, res) => {
+  const entity = req.params.entity;
+  const rt = req.user.refreshToken;
+  const sid = req.tenant.spreadsheetId;
+  let headers = [], rows = [], filename = entity + '.csv';
+  try {
+    if (entity === 'proveedores') {
+      const list = (await sheets.getAll(rt, sid, 'proveedor')).map(sheets.rowToProveedor);
+      headers = ['ID','Nombre','Contacto','Teléfono','Email','Dirección','Notas','Creado'];
+      rows = list.map(p => [p.id,p.nombre,p.contacto,p.telefono,p.email,p.direccion,p.notas,p.creado]);
+    } else if (entity === 'pedidos') {
+      const list = (await sheets.getAll(rt, sid, 'pedido')).map(sheets.rowToPedido);
+      headers = ['ID','Fecha','Proveedor','Descripción','Cantidad','PrecioUnit','Total','Estado','Notas'];
+      rows = list.map(p => [p.id,p.fecha,p.proveedor,p.descripcion,p.cantidad,p.precioUnit,p.total,p.estado,p.notas]);
+    } else if (entity === 'ingresos') {
+      const list = (await sheets.getAll(rt, sid, 'ingreso')).map(sheets.rowToIngreso);
+      headers = ['ID','Fecha','Concepto','Categoría','Monto','Fuente','Notas'];
+      rows = list.map(i => [i.id,i.fecha,i.concepto,i.categoria,i.monto,i.fuente,i.notas]);
+    } else if (entity === 'egresos') {
+      const list = (await sheets.getAll(rt, sid, 'egreso')).map(sheets.rowToEgreso);
+      headers = ['ID','Fecha','Concepto','Categoría','Monto','Proveedor','Notas'];
+      rows = list.map(e => [e.id,e.fecha,e.concepto,e.categoria,e.monto,e.proveedor,e.notas]);
+    } else if (entity === 'inventario') {
+      const list = (await sheets.getAll(rt, sid, 'inventario')).map(sheets.rowToInventario);
+      headers = ['ID','Producto','Categoría','Cantidad','Unidad','PrecioCosto','PrecioVenta','Proveedor','StockMinimo','Notas','Actualizado'];
+      rows = list.map(i => [i.id,i.producto,i.categoria,i.cantidad,i.unidad,i.precioCosto,i.precioVenta,i.proveedor,i.stockMinimo,i.notas,i.actualizado]);
+    } else if (entity === 'flujo') {
+      const ingresos = (await sheets.getAll(rt, sid, 'ingreso')).map(sheets.rowToIngreso);
+      const egresos = (await sheets.getAll(rt, sid, 'egreso')).map(sheets.rowToEgreso);
+      const movs = [];
+      ingresos.forEach(i => movs.push([i.fecha,'Ingreso',i.concepto, i.monto]));
+      egresos.forEach(e => movs.push([e.fecha,'Egreso',e.concepto, -(parseFloat(e.monto)||0)]));
+      movs.sort((a,b) => (a[0]||'').localeCompare(b[0]||''));
+      let saldo = 0;
+      const withSaldo = movs.map(m => { saldo += parseFloat(m[3])||0; return [...m, saldo]; });
+      headers = ['Fecha','Tipo','Concepto','Monto','Saldo'];
+      rows = withSaldo;
+    } else {
+      return res.status(404).send('Entidad no soportada');
+    }
+    const csv = toCSV(headers, rows);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send('\\ufeff' + csv);
+  } catch (e) {
+    console.error(e);
+    res.status(500).send('Error exportando: ' + e.message);
+  }
+});
+
+// Usuarios (solo admin)
+app.get('/usuarios', requireAuth, requireRole('admin'), async (req, res) => {
+  const storeMod = require('./services/store');
+  const db = require('fs').readFileSync ? null : null;
+  const allUsers = storeMod.findUserById ? null : null;
+  // leer usuarios del tenant desde store interno
+  const data = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'data', 'db.json'), 'utf8'));
+  const users = data.users.filter(u => u.tenantId === req.tenant.id);
+  res.render('usuarios/index', { title: 'Usuarios', tenant: req.tenant, user: req.user, usuarios: users });
+});
+
+app.post('/usuarios/:id/rol', requireAuth, requireRole('admin'), (req, res) => {
+  const storeMod = require('./services/store');
+  storeMod.updateUser(req.params.id, { role: req.body.role });
+  res.redirect('/usuarios');
 });
 
 // Settings

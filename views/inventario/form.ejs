@@ -1,0 +1,52 @@
+<!-- views/inventario/form.ejs -->
+<%- include('partials/header') %>
+<h1 class="text-2xl font-bold mb-4"><%= item ? 'Editar producto' : 'Nuevo producto' %></h1>
+<form action="<%= action %>" method="POST" class="bg-white rounded-lg shadow p-6 max-w-2xl space-y-4">
+  <div>
+    <label class="block text-sm font-medium mb-1">Producto *</label>
+    <input name="producto" required value="<%= item ? item.producto : '' %>" class="w-full border rounded px-3 py-2" />
+  </div>
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Categoría</label>
+      <input name="categoria" value="<%= item ? item.categoria : '' %>" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Unidad</label>
+      <input name="unidad" value="<%= item ? item.unidad : 'uds' %>" class="w-full border rounded px-3 py-2" />
+    </div>
+  </div>
+  <div class="grid grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Cantidad</label>
+      <input type="number" step="0.01" name="cantidad" value="<%= item ? item.cantidad : 0 %>" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Stock mínimo</label>
+      <input type="number" step="0.01" name="stockMinimo" value="<%= item ? item.stockMinimo : 0 %>" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Proveedor</label>
+      <input name="proveedor" value="<%= item ? item.proveedor : '' %>" class="w-full border rounded px-3 py-2" />
+    </div>
+  </div>
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Precio costo</label>
+      <input type="number" step="0.01" name="precioCosto" value="<%= item ? item.precioCosto : 0 %>" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Precio venta</label>
+      <input type="number" step="0.01" name="precioVenta" value="<%= item ? item.precioVenta : 0 %>" class="w-full border rounded px-3 py-2" />
+    </div>
+  </div>
+  <div>
+    <label class="block text-sm font-medium mb-1">Notas</label>
+    <textarea name="notas" rows="2" class="w-full border rounded px-3 py-2"><%= item ? item.notas : '' %></textarea>
+  </div>
+  <div class="flex gap-2">
+    <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Guardar</button>
+    <a href="/inventario" class="px-4 py-2 rounded border">Cancelar</a>
+  </div>
+</form>
+<%- include('partials/footer') %>

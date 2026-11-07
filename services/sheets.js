@@ -7,6 +7,8 @@ const SHEET_HEADERS = {
   Pedidos: ['ID', 'Fecha', 'ProveedorID', 'Proveedor', 'Descripción', 'Cantidad', 'PrecioUnit', 'Total', 'Estado', 'Notas'],
   Ingresos: ['ID', 'Fecha', 'Concepto', 'Categoría', 'Monto', 'Fuente', 'Notas'],
   Egresos: ['ID', 'Fecha', 'Concepto', 'Categoría', 'Monto', 'Proveedor', 'Notas'],
+  Inventario: ['ID', 'Producto', 'Categoría', 'Cantidad', 'Unidad', 'PrecioCosto', 'PrecioVenta', 'Proveedor', 'StockMinimo', 'Notas', 'Actualizado'],
+  MovimientosInventario: ['ID', 'Fecha', 'ProductoID', 'Producto', 'Tipo', 'Cantidad', 'Motivo', 'Notas'],
 };
 
 function authClient(refreshToken) {
@@ -59,7 +61,7 @@ async function createSpreadsheet(refreshToken, title) {
 }
 
 function sheetName(entity) {
-  const map = { proveedor: 'Proveedores', pedido: 'Pedidos', ingreso: 'Ingresos', egreso: 'Egresos' };
+  const map = { proveedor: 'Proveedores', pedido: 'Pedidos', ingreso: 'Ingresos', egreso: 'Egresos', inventario: 'Inventario', movimiento: 'MovimientosInventario' };
   return map[entity];
 }
 
@@ -156,10 +158,42 @@ function rowToEgreso(r) {
   return { id: r.ID, fecha: r.Fecha, concepto: r.Concepto, categoria: r.Categoría, monto: r.Monto, proveedor: r.Proveedor, notas: r.Notas, _row: r._row };
 }
 
+async function ensureSheets(refreshToken, spreadsheetId) {
+  const auth = authClient(refreshToken);
+  const sheets = google.sheets({ version: 'v4', auth });
+  const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties.title' });
+  const existing = new Set(meta.data.sheets.map(s => s.properties.title));
+  const toCreate = Object.keys(SHEET_HEADERS).filter(t => !existing.has(t));
+  if (toCreate.length === 0) return;
+  const requests = toCreate.map(t => ({ addSheet: { properties: { title: t } } }));
+  await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } });
+  // headers
+  const data = toCreate.map(t => ({
+    range: `${t}!A1:${String.fromCharCode(64 + SHEET_HEADERS[t].length)}1`,
+    values: [SHEET_HEADERS[t]],
+  }));
+  await sheets.spreadsheets.values.batchUpdate({ spreadsheetId, requestBody: { valueInputOption: 'RAW', data } });
+}
+
+// Mapeos inventario
+function inventarioToRow(i) {
+  return [i.id, i.producto, i.categoria || '', i.cantidad, i.unidad || 'uds', i.precioCosto || 0, i.precioVenta || 0, i.proveedor || '', i.stockMinimo || 0, i.notas || '', i.actualizado || new Date().toISOString().slice(0, 10)];
+}
+function rowToInventario(r) {
+  return { id: r.ID, producto: r.Producto, categoria: r.Categoría, cantidad: r.Cantidad, unidad: r.Unidad, precioCosto: r.PrecioCosto, precioVenta: r.PrecioVenta, proveedor: r.Proveedor, stockMinimo: r.StockMinimo, notas: r.Notas, actualizado: r.Actualizado, _row: r._row };
+}
+function movimientoToRow(m) {
+  return [m.id, m.fecha, m.productoId, m.producto, m.tipo, m.cantidad, m.motivo || '', m.notas || ''];
+}
+function rowToMovimiento(r) {
+  return { id: r.ID, fecha: r.Fecha, productoId: r.ProductoID, producto: r.Producto, tipo: r.Tipo, cantidad: r.Cantidad, motivo: r.Motivo, notas: r.Notas, _row: r._row };
+}
+
 module.exports = {
   SHEET_HEADERS,
   authClient,
   createSpreadsheet,
+  ensureSheets,
   getAll,
   appendRow,
   updateRow,
@@ -169,5 +203,7 @@ module.exports = {
   pedidoToRow, rowToPedido,
   ingresoToRow, rowToIngreso,
   egresoToRow, rowToEgreso,
+  inventarioToRow, rowToInventario,
+  movimientoToRow, rowToMovimiento,
   uuidv4,
 };
