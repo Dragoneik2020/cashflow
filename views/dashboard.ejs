@@ -1,0 +1,73 @@
+<!-- views/dashboard.ejs -->
+<%- include('partials/header') %>
+<h1 class="text-2xl font-bold mb-4">Dashboard</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white rounded-lg shadow p-4">
+    <div class="text-sm text-gray-500">Ingresos totales</div>
+    <div class="text-2xl font-bold text-green-600"><%= money(totalIngresos) %></div>
+  </div>
+  <div class="bg-white rounded-lg shadow p-4">
+    <div class="text-sm text-gray-500">Egresos totales</div>
+    <div class="text-2xl font-bold text-red-600"><%= money(totalEgresos) %></div>
+  </div>
+  <div class="bg-white rounded-lg shadow p-4">
+    <div class="text-sm text-gray-500">Saldo</div>
+    <div class="text-2xl font-bold <%= saldo>=0?'text-blue-600':'text-red-600' %>"><%= money(saldo) %></div>
+  </div>
+  <div class="bg-white rounded-lg shadow p-4">
+    <div class="text-sm text-gray-500">Pedidos pendientes</div>
+    <div class="text-2xl font-bold text-amber-600"><%= pedidosPendientes %></div>
+    <div class="text-xs text-gray-400"><%= numProveedores %> proveedores</div>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow p-4 mb-6">
+  <h2 class="font-semibold mb-2">Ingresos vs Egresos por mes</h2>
+  <canvas id="chart" height="90"></canvas>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div class="bg-white rounded-lg shadow p-4">
+    <h2 class="font-semibold mb-2">Últimos ingresos</h2>
+    <table class="w-full text-sm">
+      <thead class="text-gray-500"><tr><th class="text-left">Fecha</th><th>Concepto</th><th class="text-right">Monto</th></tr></thead>
+      <tbody>
+        <% ultimosIngresos.forEach(i => { %>
+        <tr class="border-t"><td><%= i.Fecha %></td><td><%= i.Concepto %></td><td class="text-right text-green-600"><%= money(i.Monto) %></td></tr>
+        <% }) %>
+        <% if (!ultimosIngresos.length) { %><tr><td colspan="3" class="text-center text-gray-400 py-2">Sin datos</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+  <div class="bg-white rounded-lg shadow p-4">
+    <h2 class="font-semibold mb-2">Últimos egresos</h2>
+    <table class="w-full text-sm">
+      <thead class="text-gray-500"><tr><th class="text-left">Fecha</th><th>Concepto</th><th class="text-right">Monto</th></tr></thead>
+      <tbody>
+        <% ultimosEgresos.forEach(e => { %>
+        <tr class="border-t"><td><%= e.Fecha %></td><td><%= e.Concepto %></td><td class="text-right text-red-600"><%= money(e.Monto) %></td></tr>
+        <% }) %>
+        <% if (!ultimosEgresos.length) { %><tr><td colspan="3" class="text-center text-gray-400 py-2">Sin datos</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const series = <%- series %>;
+  const labels = series.map(s => s.mes);
+  const ctx = document.getElementById('chart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Ingresos', data: series.map(s => s.ingresos), backgroundColor: '#16a34a' },
+        { label: 'Egresos', data: series.map(s => s.egresos), backgroundColor: '#dc2626' },
+      ]
+    },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+  });
+</script>
+<%- include('partials/footer') %>

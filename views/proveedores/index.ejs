@@ -1,0 +1,38 @@
+<!-- views/proveedores/index.ejs -->
+<%- include('partials/header') %>
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">Proveedores</h1>
+  <a href="/proveedores/nuevo" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">+ Nuevo</a>
+</div>
+<div class="bg-white rounded-lg shadow overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-600">
+      <tr>
+        <th class="text-left p-3">Nombre</th>
+        <th class="text-left p-3">Contacto</th>
+        <th class="text-left p-3">Teléfono</th>
+        <th class="text-left p-3">Email</th>
+        <th class="p-3"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% proveedores.forEach(p => { %>
+      <tr class="border-t hover:bg-gray-50">
+        <td class="p-3 font-medium"><%= p.nombre %></td>
+        <td class="p-3"><%= p.contacto %></td>
+        <td class="p-3"><%= p.telefono %></td>
+        <td class="p-3"><%= p.email %></td>
+        <td class="p-3 text-right space-x-2">
+          <a href="/proveedores/<%= p._row %>/edit" class="text-blue-600 hover:underline">Editar</a>
+          <form action="/proveedores/<%= p._row %>" method="POST" class="inline" onsubmit="return confirm('¿Eliminar proveedor?')">
+            <input type="hidden" name="_method" value="DELETE" />
+            <button class="text-red-600 hover:underline">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      <% }) %>
+      <% if (!proveedores.length) { %><tr><td colspan="5" class="text-center text-gray-400 py-6">Sin proveedores</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('partials/footer') %>

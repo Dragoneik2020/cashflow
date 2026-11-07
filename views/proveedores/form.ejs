@@ -1,0 +1,37 @@
+<!-- views/proveedores/form.ejs -->
+<%- include('partials/header') %>
+<h1 class="text-2xl font-bold mb-4"><%= proveedor ? 'Editar proveedor' : 'Nuevo proveedor' %></h1>
+<form action="<%= action %>" method="POST" class="bg-white rounded-lg shadow p-6 max-w-2xl space-y-4">
+  <% if (proveedor) { %><input type="hidden" name="_method" value="PUT" /><% } %>
+  <div>
+    <label class="block text-sm font-medium mb-1">Nombre *</label>
+    <input name="nombre" required value="<%= proveedor ? proveedor.nombre : '' %>" class="w-full border rounded px-3 py-2" />
+  </div>
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Contacto</label>
+      <input name="contacto" value="<%= proveedor ? proveedor.contacto : '' %>" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Teléfono</label>
+      <input name="telefono" value="<%= proveedor ? proveedor.telefono : '' %>" class="w-full border rounded px-3 py-2" />
+    </div>
+  </div>
+  <div>
+    <label class="block text-sm font-medium mb-1">Email</label>
+    <input type="email" name="email" value="<%= proveedor ? proveedor.email : '' %>" class="w-full border rounded px-3 py-2" />
+  </div>
+  <div>
+    <label class="block text-sm font-medium mb-1">Dirección</label>
+    <input name="direccion" value="<%= proveedor ? proveedor.direccion : '' %>" class="w-full border rounded px-3 py-2" />
+  </div>
+  <div>
+    <label class="block text-sm font-medium mb-1">Notas</label>
+    <textarea name="notas" rows="3" class="w-full border rounded px-3 py-2"><%= proveedor ? proveedor.notas : '' %></textarea>
+  </div>
+  <div class="flex gap-2">
+    <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Guardar</button>
+    <a href="/proveedores" class="px-4 py-2 rounded border">Cancelar</a>
+  </div>
+</form>
+<%- include('partials/footer') %>

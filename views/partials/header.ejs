@@ -1,0 +1,35 @@
+<!-- views/partials/header.ejs -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title %> · CashFlow</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .sidebar a.active { background: #1e40af; color: #fff; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div class="flex min-h-screen">
+    <aside class="w-60 bg-slate-900 text-slate-200 flex flex-col">
+      <div class="p-4 text-xl font-bold text-white border-b border-slate-700">CashFlow</div>
+      <nav class="flex-1 p-2 space-y-1 sidebar">
+        <a href="/dashboard" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Dashboard'?'active':'' %>">Dashboard</a>
+        <a href="/proveedores" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Proveedores'?'active':'' %>">Proveedores</a>
+        <a href="/pedidos" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Pedidos'?'active':'' %>">Pedidos</a>
+        <a href="/ingresos" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Ingresos'?'active':'' %>">Ingresos</a>
+        <a href="/egresos" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Egresos'?'active':'' %>">Egresos</a>
+        <a href="/flujo" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Flujo de caja'?'active':'' %>">Flujo de caja</a>
+      </nav>
+      <div class="p-3 border-t border-slate-700 text-sm">
+        <div class="truncate"><%= user ? user.name : '' %></div>
+        <div class="truncate text-slate-400 text-xs"><%= tenant ? tenant.name : '' %></div>
+        <a href="/settings" class="block mt-2 text-slate-300 hover:text-white">Configuración</a>
+        <a href="/logout" class="block mt-1 text-slate-400 hover:text-white">Cerrar sesión</a>
+      </div>
+    </aside>
+    <main class="flex-1 p-6">
+      <div class="max-w-6xl mx-auto">

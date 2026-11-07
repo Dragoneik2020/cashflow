@@ -1,0 +1,21 @@
+{
+  "name": "cashflow-app",
+  "version": "1.0.0",
+  "description": "Gestión de flujo de caja, proveedores, pedidos, ingresos y egresos respaldados en Google Sheets",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ejs": "^3.1.10",
+    "express-session": "^1.18.0",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "googleapis": "^140.0.0",
+    "dotenv": "^16.4.5",
+    "uuid": "^10.0.0",
+    "method-override": "^3.0.0"
+  }
+}

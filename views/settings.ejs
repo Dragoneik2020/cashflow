@@ -1,0 +1,26 @@
+<!-- views/settings.ejs -->
+<%- include('partials/header') %>
+<h1 class="text-2xl font-bold mb-4">Configuración</h1>
+<div class="bg-white rounded-lg shadow p-6 max-w-2xl space-y-4">
+  <div>
+    <div class="text-sm text-gray-500">Negocio</div>
+    <div class="font-medium"><%= tenant.name %></div>
+  </div>
+  <div>
+    <div class="text-sm text-gray-500">Hoja de cálculo</div>
+    <% if (tenant.spreadsheetUrl) { %>
+      <a href="<%= tenant.spreadsheetUrl %>" target="_blank" class="text-blue-600 hover:underline">Abrir en Google Sheets</a>
+    <% } else { %>
+      <span class="text-gray-400">Se creará automáticamente al guardar datos</span>
+    <% } %>
+  </div>
+  <div>
+    <div class="text-sm text-gray-500">Usuario</div>
+    <div class="font-medium"><%= user.name %> (<%= user.email %>)</div>
+  </div>
+  <div>
+    <div class="text-sm text-gray-500">Rol</div>
+    <div><%= user.role %></div>
+  </div>
+</div>
+<%- include('partials/footer') %>
