@@ -1,7 +1,23 @@
 <!-- views/usuarios/index.ejs -->
-<%- include('partials/header') %>
+<%- include('../partials/header') %>
 <h1 class="text-2xl font-bold mb-4">Usuarios del negocio</h1>
-<p class="text-gray-500 mb-4 text-sm">Solo el administrador puede cambiar roles.</p>
+<p class="text-gray-500 mb-4 text-sm">Invita usuarios por correo. Al iniciar sesión con Google con ese correo, se vinculan automáticamente a este negocio.</p>
+
+<div class="bg-white rounded-lg shadow p-6 mb-6 max-w-2xl">
+  <h2 class="font-semibold mb-3">Agregar usuario</h2>
+  <form action="/usuarios" method="POST" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <input name="name" placeholder="Nombre" class="border rounded px-3 py-2" />
+    <input type="email" name="email" required placeholder="correo@ejemplo.com" class="border rounded px-3 py-2" />
+    <select name="role" class="border rounded px-3 py-2">
+      <option value="operador">Operador</option>
+      <option value="admin">Administrador</option>
+    </select>
+    <div class="md:col-span-3">
+      <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Agregar</button>
+    </div>
+  </form>
+</div>
+
 <div class="bg-white rounded-lg shadow overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-600">
@@ -9,26 +25,40 @@
         <th class="text-left p-3">Nombre</th>
         <th class="text-left p-3">Email</th>
         <th class="text-left p-3">Rol</th>
+        <th class="text-left p-3">Vinculado</th>
         <th class="p-3"></th>
       </tr>
     </thead>
     <tbody>
       <% usuarios.forEach(u => { %>
       <tr class="border-t">
-        <td class="p-3"><%= u.name %></td>
-        <td class="p-3"><%= u.email %></td>
         <td class="p-3">
-          <form action="/usuarios/<%= u.id %>/rol" method="POST" class="inline">
-            <select name="role" onchange="this.form.submit()" class="border rounded px-2 py-1 text-xs">
+          <form action="/usuarios/<%= u.id %>/editar" method="POST" class="flex gap-2 items-center">
+            <input name="name" value="<%= u.name %>" class="border rounded px-2 py-1 text-xs w-32" />
+            <input type="email" name="email" value="<%= u.email %>" class="border rounded px-2 py-1 text-xs w-40" />
+            <select name="role" class="border rounded px-2 py-1 text-xs">
               <option value="admin" <%= u.role==='admin'?'selected':'' %>>Administrador</option>
               <option value="operador" <%= u.role==='operador'?'selected':'' %>>Operador</option>
             </select>
+            <button class="text-blue-600 hover:underline text-xs">Guardar</button>
           </form>
         </td>
-        <td class="p-3 text-xs text-gray-400"><%= u.id %></td>
+        <td class="p-3 text-gray-500"><%= u.email %></td>
+        <td class="p-3"><%= u.role %></td>
+        <td class="p-3 text-xs"><%= u.googleId ? 'Sí' : 'Pendiente' %></td>
+        <td class="p-3 text-right">
+          <% if (u.id !== user.id) { %>
+          <form action="/usuarios/<%= u.id %>/eliminar" method="POST" class="inline" onsubmit="return confirm('¿Eliminar usuario?')">
+            <button class="text-red-600 hover:underline text-xs">Eliminar</button>
+          </form>
+          <% } else { %>
+          <span class="text-gray-400 text-xs">(tú)</span>
+          <% } %>
+        </td>
       </tr>
       <% }) %>
+      <% if (!usuarios.length) { %><tr><td colspan="5" class="text-center text-gray-400 py-6">Sin usuarios</td></tr><% } %>
     </tbody>
   </table>
 </div>
-<%- include('partials/footer') %>
+<%- include('../partials/footer') %>

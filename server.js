@@ -40,6 +40,14 @@ passport.use(new GoogleStrategy({
     const name = profile.displayName || email;
     const avatar = profile.photos && profile.photos[0] ? profile.photos[0].value : null;
     let user = store.findUserByGoogleId(profile.id);
+    if (!user && email) {
+      // vincular con usuario pendiente creado por el admin (por email)
+      user = store.findUserByEmail(email);
+      if (user) {
+        store.updateUser(user.id, { googleId: profile.id, name, avatar, refreshToken: refreshToken || user.refreshToken });
+        user = store.findUserById(user.id);
+      }
+    }
     if (!user) {
       // crear tenant + usuario admin
       const tenant = store.createTenant({ name: name || email, slug: email.split('@')[0] });
@@ -54,6 +62,7 @@ passport.use(new GoogleStrategy({
       });
     } else {
       if (refreshToken) store.updateUser(user.id, { refreshToken });
+      else store.updateUser(user.id, { name, avatar });
     }
     return done(null, user);
   } catch (err) {
@@ -493,18 +502,54 @@ app.get('/export/:entity', requireAuth, async (req, res) => {
 
 // Usuarios (solo admin)
 app.get('/usuarios', requireAuth, requireRole('admin'), async (req, res) => {
-  const storeMod = require('./services/store');
-  const db = require('fs').readFileSync ? null : null;
-  const allUsers = storeMod.findUserById ? null : null;
-  // leer usuarios del tenant desde store interno
   const data = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'data', 'db.json'), 'utf8'));
   const users = data.users.filter(u => u.tenantId === req.tenant.id);
   res.render('usuarios/index', { title: 'Usuarios', tenant: req.tenant, user: req.user, usuarios: users });
 });
 
+app.post('/usuarios', requireAuth, requireRole('admin'), (req, res) => {
+  const email = (req.body.email || '').trim().toLowerCase();
+  if (!email) return res.redirect('/usuarios');
+  const storeMod = require('./services/store');
+  const existing = storeMod.findUserByEmail(email);
+  if (existing) {
+    if (existing.tenantId !== req.tenant.id) return res.status(400).send('El usuario ya pertenece a otro negocio.');
+    storeMod.updateUser(existing.id, { role: req.body.role || existing.role, name: req.body.name || existing.name });
+  } else {
+    storeMod.createUser({
+      googleId: null,
+      email,
+      name: req.body.name || email.split('@')[0],
+      tenantId: req.tenant.id,
+      role: req.body.role || 'operador',
+      refreshToken: null,
+    });
+  }
+  res.redirect('/usuarios');
+});
+
+app.post('/usuarios/:id/editar', requireAuth, requireRole('admin'), (req, res) => {
+  const storeMod = require('./services/store');
+  storeMod.updateUser(req.params.id, {
+    name: req.body.name,
+    email: req.body.email,
+    role: req.body.role,
+  });
+  res.redirect('/usuarios');
+});
+
 app.post('/usuarios/:id/rol', requireAuth, requireRole('admin'), (req, res) => {
   const storeMod = require('./services/store');
   storeMod.updateUser(req.params.id, { role: req.body.role });
+  res.redirect('/usuarios');
+});
+
+app.post('/usuarios/:id/eliminar', requireAuth, requireRole('admin'), (req, res) => {
+  const storeMod = require('./services/store');
+  const u = storeMod.findUserById(req.params.id);
+  if (u && u.id !== req.user.id && u.tenantId === req.tenant.id) {
+    storeMod.deleteUser(req.params.id);
+  }
   res.redirect('/usuarios');
 });
 

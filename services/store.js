@@ -66,6 +66,10 @@ const store = {
   findUserByGoogleId(googleId) {
     return read().users.find(u => u.googleId === googleId) || null;
   },
+  findUserByEmail(email) {
+    if (!email) return null;
+    return read().users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase()) || null;
+  },
   findUserById(id) {
     return read().users.find(u => u.id === id) || null;
   },
@@ -93,6 +97,14 @@ const store = {
     Object.assign(u, patch);
     write(db);
     return u;
+  },
+  deleteUser(id) {
+    const db = read();
+    const idx = db.users.findIndex(x => x.id === id);
+    if (idx === -1) return false;
+    db.users.splice(idx, 1);
+    write(db);
+    return true;
   },
 };
 
