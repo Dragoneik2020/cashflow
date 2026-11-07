@@ -1,0 +1,37 @@
+<!-- views/onboarding.ejs -->
+<%- include('partials/header') %>
+<div class="max-w-2xl mx-auto">
+  <div class="bg-white rounded-lg shadow p-8">
+    <h1 class="text-2xl font-bold mb-2">Crea tu negocio</h1>
+    <p class="text-gray-500 mb-6">Antes de empezar, registra los datos de tu negocio. Se creará automáticamente una hoja de cálculo en tu Google Drive.</p>
+
+    <% if (error) { %>
+      <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 text-sm"><%= error %></div>
+    <% } %>
+
+    <form action="/onboarding" method="POST" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Nombre del negocio *</label>
+        <input name="name" required placeholder="Ej. Ferretería El Martillo" class="w-full border rounded px-3 py-2" />
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">Teléfono</label>
+          <input name="phone" placeholder="+52 55 1234 5678" class="w-full border rounded px-3 py-2" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Correo electrónico del negocio</label>
+          <input type="email" name="email" placeholder="contacto@negocio.com" class="w-full border rounded px-3 py-2" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Dirección</label>
+        <textarea name="address" rows="2" placeholder="Calle, número, colonia, ciudad" class="w-full border rounded px-3 py-2"></textarea>
+      </div>
+      <div class="pt-2">
+        <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold">Crear negocio y continuar</button>
+      </div>
+    </form>
+  </div>
+</div>
+<%- include('partials/footer') %>

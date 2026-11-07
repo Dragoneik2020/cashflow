@@ -2,11 +2,37 @@
 <%- include('partials/header') %>
 <h1 class="text-2xl font-bold mb-4">Configuración</h1>
 <div class="bg-white rounded-lg shadow p-6 max-w-2xl space-y-4">
-  <div>
-    <div class="text-sm text-gray-500">Negocio</div>
-    <div class="font-medium"><%= tenant.name %></div>
-  </div>
-  <div>
+  <h2 class="font-semibold">Datos del negocio</h2>
+  <% if (user.role === 'admin' || (user.email||'').toLowerCase()==='dragoneik2010@gmail.com') { %>
+  <form action="/settings" method="POST" class="space-y-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Nombre del negocio</label>
+      <input name="name" value="<%= tenant.name %>" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Teléfono</label>
+        <input name="phone" value="<%= tenant.phone || '' %>" class="w-full border rounded px-3 py-2" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Correo electrónico</label>
+        <input type="email" name="email" value="<%= tenant.email || '' %>" class="w-full border rounded px-3 py-2" />
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Dirección</label>
+      <textarea name="address" rows="2" class="w-full border rounded px-3 py-2"><%= tenant.address || '' %></textarea>
+    </div>
+    <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Guardar cambios</button>
+  </form>
+  <% } else { %>
+  <div><div class="text-sm text-gray-500">Negocio</div><div class="font-medium"><%= tenant.name %></div></div>
+  <div><div class="text-sm text-gray-500">Teléfono</div><div><%= tenant.phone || '—' %></div></div>
+  <div><div class="text-sm text-gray-500">Correo</div><div><%= tenant.email || '—' %></div></div>
+  <div><div class="text-sm text-gray-500">Dirección</div><div><%= tenant.address || '—' %></div></div>
+  <% } %>
+
+  <div class="pt-4 border-t">
     <div class="text-sm text-gray-500">Hoja de cálculo</div>
     <% if (tenant.spreadsheetUrl) { %>
       <a href="<%= tenant.spreadsheetUrl %>" target="_blank" class="text-blue-600 hover:underline">Abrir en Google Sheets</a>
@@ -20,7 +46,7 @@
   </div>
   <div>
     <div class="text-sm text-gray-500">Rol</div>
-    <div><%= user.role %></div>
+    <div><%= user.role %><% if ((user.email||'').toLowerCase()==='dragoneik2010@gmail.com') { %> · Super Admin<% } %></div>
   </div>
 </div>
 <%- include('partials/footer') %>

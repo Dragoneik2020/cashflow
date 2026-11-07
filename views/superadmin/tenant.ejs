@@ -5,6 +5,18 @@
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
   <div class="bg-white rounded-lg shadow p-4">
+    <div class="text-sm text-gray-500 mb-1">Teléfono</div>
+    <div><%= biz.phone || '—' %></div>
+  </div>
+  <div class="bg-white rounded-lg shadow p-4">
+    <div class="text-sm text-gray-500 mb-1">Correo del negocio</div>
+    <div><%= biz.email || '—' %></div>
+  </div>
+  <div class="bg-white rounded-lg shadow p-4">
+    <div class="text-sm text-gray-500 mb-1">Dirección</div>
+    <div><%= biz.address || '—' %></div>
+  </div>
+  <div class="bg-white rounded-lg shadow p-4">
     <div class="text-sm text-gray-500 mb-1">Hoja de cálculo</div>
     <% if (biz.spreadsheetUrl) { %>
       <a href="<%= biz.spreadsheetUrl %>" target="_blank" class="text-blue-600 hover:underline break-all"><%= biz.spreadsheetUrl %></a>

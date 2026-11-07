@@ -49,14 +49,13 @@ passport.use(new GoogleStrategy({
       }
     }
     if (!user) {
-      // crear tenant + usuario admin
-      const tenant = store.createTenant({ name: name || email, slug: email.split('@')[0] });
+      // crear usuario sin negocio; el onboarding crea el negocio
       user = store.createUser({
         googleId: profile.id,
         email,
         name,
         avatar,
-        tenantId: tenant.id,
+        tenantId: null,
         role: 'admin',
         refreshToken: refreshToken || null,
       });
@@ -82,7 +81,12 @@ async function requireAuth(req, res, next) {
   const user = store.findUserById(req.user.id || req.user);
   if (!user) return res.redirect('/login');
   req.user = user;
-  req.tenant = store.findTenantById(user.tenantId);
+  req.tenant = user.tenantId ? store.findTenantById(user.tenantId) : null;
+  // si no tiene negocio, enviar a onboarding (excepto rutas de onboarding/auth)
+  const openPaths = ['/onboarding', '/logout'];
+  if (!req.tenant && !openPaths.includes(req.path) && !req.path.startsWith('/auth/')) {
+    return res.redirect('/onboarding');
+  }
   // auto-crear hoja si falta
   if (req.tenant && !req.tenant.spreadsheetId) {
     try {
@@ -136,7 +140,44 @@ app.get('/', (req, res) => {
 app.get('/login', (req, res) => res.render('login', { title: 'Iniciar sesión' }));
 
 app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive.file'], accessType: 'offline', prompt: 'consent' }));
-app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login' }), (req, res) => res.redirect('/dashboard'));
+app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login' }), (req, res) => {
+  const u = store.findUserById(req.user.id || req.user);
+  if (u && !u.tenantId) return res.redirect('/onboarding');
+  res.redirect('/dashboard');
+});
+
+// Onboarding: registro del negocio
+app.get('/onboarding', requireAuth, (req, res) => {
+  if (req.tenant) return res.redirect('/dashboard');
+  res.render('onboarding', { title: 'Crear tu negocio', tenant: null, user: req.user, error: null });
+});
+
+app.post('/onboarding', requireAuth, async (req, res) => {
+  if (req.tenant) return res.redirect('/dashboard');
+  const name = (req.body.name || '').trim();
+  const phone = (req.body.phone || '').trim();
+  const email = (req.body.email || '').trim();
+  const address = (req.body.address || '').trim();
+  if (!name) {
+    return res.render('onboarding', { title: 'Crear tu negocio', tenant: null, user: req.user, error: 'El nombre del negocio es obligatorio.' });
+  }
+  try {
+    const tenant = store.createTenant({ name, phone, email, address, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || undefined });
+    store.updateUser(req.user.id, { tenantId: tenant.id, role: 'admin' });
+    req.user = store.findUserById(req.user.id);
+    // crear hoja
+    try {
+      const { spreadsheetId, url } = await sheets.createSpreadsheet(req.user.refreshToken, `CashFlow - ${tenant.name}`);
+      store.updateTenant(tenant.id, { spreadsheetId, spreadsheetUrl: url });
+    } catch (e) {
+      console.error('Error creando spreadsheet:', e.message);
+    }
+    res.redirect('/dashboard');
+  } catch (e) {
+    console.error(e);
+    res.render('onboarding', { title: 'Crear tu negocio', tenant: null, user: req.user, error: 'Error al crear el negocio: ' + e.message });
+  }
+});
 
 app.get('/logout', (req, res, next) => req.logout(err => { if (err) return next(err); res.redirect('/login'); }));
 
@@ -604,6 +645,17 @@ app.post('/superadmin/usuario/:id/eliminar', requireAuth, requireSuperAdmin, (re
   const tid = u ? u.tenantId : null;
   storeMod.deleteUser(req.params.id);
   res.redirect(tid ? `/superadmin/tenant/${tid}` : '/superadmin');
+});
+
+app.post('/settings', requireAuth, requireRole('admin'), (req, res) => {
+  if (!req.tenant) return res.redirect('/onboarding');
+  store.updateTenant(req.tenant.id, {
+    name: (req.body.name || req.tenant.name).trim(),
+    phone: (req.body.phone || '').trim() || null,
+    email: (req.body.email || '').trim() || null,
+    address: (req.body.address || '').trim() || null,
+  });
+  res.redirect('/settings');
 });
 
 // Settings
