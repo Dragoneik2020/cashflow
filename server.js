@@ -17,7 +17,16 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-app.use(methodOverride('_method'));
+app.use(methodOverride(function (req, res) {
+  if (req.body && typeof req.body === 'object' && req.body._method) return req.body._method;
+  // soporte query string
+  try {
+    const u = new URL(req.url, 'http://localhost');
+    const q = u.searchParams.get('_method');
+    if (q) return q;
+  } catch (e) {}
+  return undefined;
+}));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret',
@@ -260,7 +269,7 @@ app.post('/proveedores', requireAuth, async (req, res) => {
 app.get('/proveedores/:row/edit', requireAuth, async (req, res) => {
   const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
   const proveedor = list.map(sheets.rowToProveedor).find(p => String(p._row) === String(req.params.row));
-  res.render('proveedores/form', { title: 'Editar proveedor', tenant: req.tenant, user: req.user, proveedor, action: `/proveedores/${req.params.row}` });
+  res.render('proveedores/form', { title: 'Editar proveedor', tenant: req.tenant, user: req.user, proveedor, action: `/proveedores/${req.params.row}?_method=PUT` });
 });
 
 app.put('/proveedores/:row', requireAuth, async (req, res) => {

@@ -1,9 +1,7 @@
 <!-- views/proveedores/form.ejs -->
 <%- include('../partials/header') %>
 <h1 class="text-2xl font-bold mb-4"><%= proveedor ? 'Editar proveedor' : 'Nuevo proveedor' %></h1>
-<form action="<%= action %>" method="POST" class="bg-white rounded-lg shadow p-6 max-w-2xl space-y-4">
-  <% if (proveedor) { %><input type="hidden" name="_method" value="PUT" /><% } %>
-  <div>
+<form action="<%= action %>" method="POST" class="bg-white rounded-lg shadow p-6 max-w-2xl space-y-4">  <div>
     <label class="block text-sm font-medium mb-1">Nombre *</label>
     <input name="nombre" required value="<%= proveedor ? proveedor.nombre : '' %>" class="w-full border rounded px-3 py-2" />
   </div>
