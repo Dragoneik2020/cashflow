@@ -3,10 +3,10 @@ const { google } = require('googleapis');
 const { v4: uuidv4 } = require('uuid');
 
 const SHEET_HEADERS = {
-  Proveedores: ['ID', 'Nombre', 'Contacto', 'Teléfono', 'Email', 'Dirección', 'Notas', 'Creado'],
   Pedidos: ['ID', 'Fecha', 'ProveedorID', 'Proveedor', 'Descripción', 'Cantidad', 'PrecioUnit', 'Total', 'Estado', 'Notas'],
   Ingresos: ['ID', 'Fecha', 'Concepto', 'Categoría', 'Monto', 'Fuente', 'Notas'],
   Egresos: ['ID', 'Fecha', 'Concepto', 'Categoría', 'Monto', 'Proveedor', 'Notas'],
+  Proveedores: ['ID', 'Nombre', 'RUT', 'Contacto', 'Teléfono', 'Email', 'Dirección', 'Notas', 'Creado'],
   Inventario: ['ID', 'Producto', 'Categoría', 'Cantidad', 'Unidad', 'PrecioCosto', 'PrecioVenta', 'Proveedor', 'StockMinimo', 'Notas', 'Actualizado'],
   MovimientosInventario: ['ID', 'Fecha', 'ProductoID', 'Producto', 'Tipo', 'Cantidad', 'Motivo', 'Notas'],
 };
@@ -124,11 +124,11 @@ async function deleteRow(refreshToken, spreadsheetId, entity, rowIndex) {
 
 // Helpers de mapeo
 function proveedorToRow(p) {
-  return [p.id, p.nombre, p.contacto || '', p.telefono || '', p.email || '', p.direccion || '', p.notas || '', p.creado || new Date().toISOString()];
+  return [p.id, p.nombre, p.rut || '', p.contacto || '', p.telefono || '', p.email || '', p.direccion || '', p.notas || '', p.creado || new Date().toISOString()];
 }
 function rowToProveedor(r) {
   return {
-    id: r.ID, nombre: r.Nombre, contacto: r.Contacto, telefono: r.Teléfono,
+    id: r.ID, nombre: r.Nombre, rut: r.RUT, contacto: r.Contacto, telefono: r.Teléfono,
     email: r.Email, direccion: r.Dirección, notas: r.Notas, creado: r.Creado, _row: r._row,
   };
 }
@@ -164,15 +164,36 @@ async function ensureSheets(refreshToken, spreadsheetId) {
   const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties.title' });
   const existing = new Set(meta.data.sheets.map(s => s.properties.title));
   const toCreate = Object.keys(SHEET_HEADERS).filter(t => !existing.has(t));
-  if (toCreate.length === 0) return;
-  const requests = toCreate.map(t => ({ addSheet: { properties: { title: t } } }));
-  await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } });
-  // headers
-  const data = toCreate.map(t => ({
-    range: `${t}!A1:${String.fromCharCode(64 + SHEET_HEADERS[t].length)}1`,
-    values: [SHEET_HEADERS[t]],
-  }));
-  await sheets.spreadsheets.values.batchUpdate({ spreadsheetId, requestBody: { valueInputOption: 'RAW', data } });
+  if (toCreate.length > 0) {
+    const requests = toCreate.map(t => ({ addSheet: { properties: { title: t } } }));
+    await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } });
+    const data = toCreate.map(t => ({
+      range: `${t}!A1:${String.fromCharCode(64 + SHEET_HEADERS[t].length)}1`,
+      values: [SHEET_HEADERS[t]],
+    }));
+    await sheets.spreadsheets.values.batchUpdate({ spreadsheetId, requestBody: { valueInputOption: 'RAW', data } });
+  }
+  // Asegurar encabezados actualizados en hojas existentes (migración de columnas nuevas)
+  await ensureHeaders(refreshToken, spreadsheetId, sheets);
+}
+
+async function ensureHeaders(refreshToken, spreadsheetId, sheetsApi) {
+  const sheets = sheetsApi || google.sheets({ version: 'v4', auth: authClient(refreshToken) });
+  for (const [title, headers] of Object.entries(SHEET_HEADERS)) {
+    try {
+      const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${title}!1:1` });
+      const current = (res.data.values && res.data.values[0]) || [];
+      if (current.length === 0) {
+        await sheets.spreadsheets.values.update({ spreadsheetId, range: `${title}!A1:${String.fromCharCode(64 + headers.length)}1`, valueInputOption: 'RAW', requestBody: { values: [headers] } });
+      } else if (current.length < headers.length) {
+        // agregar columnas faltantes al final del encabezado
+        const missing = headers.slice(current.length);
+        await sheets.spreadsheets.values.update({ spreadsheetId, range: `${title}!${String.fromCharCode(65 + current.length)}1:${String.fromCharCode(64 + headers.length)}1`, valueInputOption: 'RAW', requestBody: { values: [missing] } });
+      }
+    } catch (e) {
+      // hoja puede no existir; ignorar
+    }
+  }
 }
 
 // Mapeos inventario

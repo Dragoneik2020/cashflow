@@ -64,6 +64,7 @@ const store = {
       phone: data.phone || null,
       email: data.email || null,
       address: data.address || null,
+      rut: data.rut || null,
       spreadsheetId: data.spreadsheetId || null,
       spreadsheetUrl: data.spreadsheetUrl || null,
       createdAt: new Date().toISOString(),

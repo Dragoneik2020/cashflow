@@ -106,7 +106,7 @@ async function requireAuth(req, res, next) {
 // Helpers para vistas
 app.locals.money = (n) => {
   const num = parseFloat(n) || 0;
-  return num.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+  return num.toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
 };
 
 const SUPER_ADMIN_EMAIL = 'dragoneik2010@gmail.com';
@@ -158,11 +158,12 @@ app.post('/onboarding', requireAuth, async (req, res) => {
   const phone = (req.body.phone || '').trim();
   const email = (req.body.email || '').trim();
   const address = (req.body.address || '').trim();
+  const rut = (req.body.rut || '').trim();
   if (!name) {
     return res.render('onboarding', { title: 'Crear tu negocio', tenant: null, user: req.user, error: 'El nombre del negocio es obligatorio.' });
   }
   try {
-    const tenant = store.createTenant({ name, phone, email, address, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || undefined });
+    const tenant = store.createTenant({ name, phone, email, address, rut, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || undefined });
     store.updateUser(req.user.id, { tenantId: tenant.id, role: 'admin' });
     req.user = store.findUserById(req.user.id);
     // crear hoja
@@ -240,6 +241,7 @@ app.post('/proveedores', requireAuth, async (req, res) => {
   const p = {
     id: sheets.uuidv4(),
     nombre: req.body.nombre,
+    rut: req.body.rut,
     contacto: req.body.contacto,
     telefono: req.body.telefono,
     email: req.body.email,
@@ -263,6 +265,7 @@ app.put('/proveedores/:row', requireAuth, async (req, res) => {
   const p = {
     id: existing.id,
     nombre: req.body.nombre,
+    rut: req.body.rut,
     contacto: req.body.contacto,
     telefono: req.body.telefono,
     email: req.body.email,
@@ -654,6 +657,7 @@ app.post('/settings', requireAuth, requireRole('admin'), (req, res) => {
     phone: (req.body.phone || '').trim() || null,
     email: (req.body.email || '').trim() || null,
     address: (req.body.address || '').trim() || null,
+    rut: (req.body.rut || '').trim() || null,
   });
   res.redirect('/settings');
 });

@@ -23,6 +23,10 @@
       <label class="block text-sm font-medium mb-1">Dirección</label>
       <textarea name="address" rows="2" class="w-full border rounded px-3 py-2"><%= tenant.address || '' %></textarea>
     </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">RUT del negocio</label>
+      <input name="rut" value="<%= tenant.rut || '' %>" placeholder="12.345.678-9" class="w-full border rounded px-3 py-2" />
+    </div>
     <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Guardar cambios</button>
   </form>
   <% } else { %>
