@@ -98,7 +98,10 @@ async function requireAuth(req, res, next) {
     }
   }
   if (req.tenant && req.tenant.spreadsheetId) {
-    try { await sheets.ensureSheets(user.refreshToken, req.tenant.spreadsheetId); } catch (e) { console.error('ensureSheets:', e.message); }
+    if (!global.__ensured) global.__ensured = new Set();
+    if (!global.__ensured.has(req.tenant.id)) {
+      try { await sheets.ensureSheets(user.refreshToken, req.tenant.spreadsheetId); global.__ensured.add(req.tenant.id); } catch (e) { console.error('ensureSheets:', e.message); }
+    }
   }
   next();
 }
@@ -185,10 +188,11 @@ app.get('/logout', (req, res, next) => req.logout(err => { if (err) return next(
 // Dashboard
 app.get('/dashboard', requireAuth, async (req, res) => {
   try {
-    const ingresos = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso');
-    const egresos = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'egreso');
-    const pedidos = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
-    const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+    const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['ingreso', 'egreso', 'pedido', 'proveedor']);
+    const ingresos = data.ingreso;
+    const egresos = data.egreso;
+    const pedidos = data.pedido;
+    const proveedores = data.proveedor;
 
     const totalIngresos = ingresos.reduce((s, i) => s + (parseFloat(i.Monto) || 0), 0);
     const totalEgresos = egresos.reduce((s, e) => s + (parseFloat(e.Monto) || 0), 0);
@@ -284,8 +288,9 @@ app.delete('/proveedores/:row', requireAuth, requireRole('admin'), async (req, r
 
 // Pedidos
 app.get('/pedidos', requireAuth, async (req, res) => {
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
-  const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+  const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['pedido', 'proveedor']);
+  const list = data.pedido;
+  const proveedores = data.proveedor;
   res.render('pedidos/index', { title: 'Pedidos', tenant: req.tenant, user: req.user, pedidos: list.map(sheets.rowToPedido), proveedores: proveedores.map(sheets.rowToProveedor) });
 });
 
@@ -361,8 +366,9 @@ app.delete('/ingresos/:row', requireAuth, requireRole('admin'), async (req, res)
 
 // Egresos
 app.get('/egresos', requireAuth, async (req, res) => {
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'egreso');
-  const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+  const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['egreso', 'proveedor']);
+  const list = data.egreso;
+  const proveedores = data.proveedor;
   res.render('egresos/index', { title: 'Egresos', tenant: req.tenant, user: req.user, egresos: list.map(sheets.rowToEgreso), proveedores: proveedores.map(sheets.rowToProveedor) });
 });
 
@@ -393,8 +399,9 @@ app.delete('/egresos/:row', requireAuth, requireRole('admin'), async (req, res) 
 // Inventario
 app.get('/inventario', requireAuth, async (req, res) => {
   await sheets.ensureSheets(req.user.refreshToken, req.tenant.spreadsheetId);
-  const items = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario');
-  const movs = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'movimiento');
+  const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['inventario', 'movimiento']);
+  const items = data.inventario;
+  const movs = data.movimiento;
   res.render('inventario/index', { title: 'Inventario', tenant: req.tenant, user: req.user, items: items.map(sheets.rowToInventario), movimientos: movs.map(sheets.rowToMovimiento).reverse().slice(0, 20) });
 });
 
@@ -483,8 +490,9 @@ app.delete('/inventario/:row', requireAuth, requireRole('admin'), async (req, re
 
 // Flujo de caja
 app.get('/flujo', requireAuth, async (req, res) => {
-  const ingresos = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso');
-  const egresos = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'egreso');
+  const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['ingreso', 'egreso']);
+  const ingresos = data.ingreso;
+  const egresos = data.egreso;
   const movs = [];
   ingresos.map(sheets.rowToIngreso).forEach(i => movs.push({ fecha: i.fecha, tipo: 'Ingreso', concepto: i.concepto, monto: parseFloat(i.monto) || 0 }));
   egresos.map(sheets.rowToEgreso).forEach(e => movs.push({ fecha: e.fecha, tipo: 'Egreso', concepto: e.concepto, monto: -(parseFloat(e.monto) || 0) }));
@@ -533,8 +541,9 @@ app.get('/export/:entity', requireAuth, async (req, res) => {
       headers = ['ID','Producto','Categoría','Cantidad','Unidad','PrecioCosto','PrecioVenta','Proveedor','StockMinimo','Notas','Actualizado'];
       rows = list.map(i => [i.id,i.producto,i.categoria,i.cantidad,i.unidad,i.precioCosto,i.precioVenta,i.proveedor,i.stockMinimo,i.notas,i.actualizado]);
     } else if (entity === 'flujo') {
-      const ingresos = (await sheets.getAll(rt, sid, 'ingreso')).map(sheets.rowToIngreso);
-      const egresos = (await sheets.getAll(rt, sid, 'egreso')).map(sheets.rowToEgreso);
+      const d = await sheets.batchGetAll(rt, sid, ['ingreso', 'egreso']);
+      const ingresos = d.ingreso.map(sheets.rowToIngreso);
+      const egresos = d.egreso.map(sheets.rowToEgreso);
       const movs = [];
       ingresos.forEach(i => movs.push([i.fecha,'Ingreso',i.concepto, i.monto]));
       egresos.forEach(e => movs.push([e.fecha,'Egreso',e.concepto, -(parseFloat(e.monto)||0)]));

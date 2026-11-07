@@ -65,6 +65,26 @@ function sheetName(entity) {
   return map[entity];
 }
 
+async function batchGetAll(refreshToken, spreadsheetId, entities) {
+  if (!entities || entities.length === 0) return {};
+  const auth = authClient(refreshToken);
+  const sheets = google.sheets({ version: 'v4', auth });
+  const ranges = entities.map(e => `${sheetName(e)}!A2:Z`);
+  const res = await sheets.spreadsheets.values.batchGet({ spreadsheetId, ranges });
+  const out = {};
+  entities.forEach((e, i) => {
+    const vr = (res.data.valueRanges || [])[i] || {};
+    const rows = vr.values || [];
+    const headers = SHEET_HEADERS[sheetName(e)];
+    out[e] = rows.map((r, idx) => {
+      const obj = { _row: idx + 2 };
+      headers.forEach((h, j) => { obj[h] = r[j] !== undefined ? r[j] : ''; });
+      return obj;
+    });
+  });
+  return out;
+}
+
 async function getAll(refreshToken, spreadsheetId, entity) {
   const auth = authClient(refreshToken);
   const sheets = google.sheets({ version: 'v4', auth });
@@ -216,6 +236,7 @@ module.exports = {
   createSpreadsheet,
   ensureSheets,
   getAll,
+  batchGetAll,
   appendRow,
   updateRow,
   deleteRow,
