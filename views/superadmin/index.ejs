@@ -37,9 +37,7 @@
         <td class="p-3 text-gray-500"><%= t.slug %></td>
         <td class="p-3"><%= t.users.length %> (<%= t.users.filter(u=>u.role==='admin').length %> admin, <%= t.users.filter(u=>u.role==='operador').length %> op)</td>
         <td class="p-3"><%= (t.createdAt||'').slice(0,10) %></td>
-        <td class="p-3">
-          <% if (t.spreadsheetUrl) { %><a href="<%= t.spreadsheetUrl %>" target="_blank" class="text-blue-600 hover:underline text-xs">Abrir</a><% } else { %><span class="text-gray-400 text-xs">—</span><% } %>
-        </td>
+        <td class="p-3 text-gray-400 text-xs">Privada</td>
         <td class="p-3 text-right space-x-2">
           <a href="/superadmin/tenant/<%= t.id %>" class="text-blue-600 hover:underline text-xs">Ver / gestionar</a>
           <form action="/superadmin/tenant/<%= t.id %>/eliminar" method="POST" class="inline" onsubmit="return confirm('¿Eliminar negocio y todos sus usuarios? (la hoja de Sheets NO se borra)')">

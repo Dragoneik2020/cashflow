@@ -52,5 +52,15 @@
     <div class="text-sm text-gray-500">Rol</div>
     <div><%= user.role %><% if ((user.email||'').toLowerCase()==='dragoneik2010@gmail.com') { %> · Super Admin<% } %></div>
   </div>
+
+  <% if (user.role === 'admin') { %>
+  <div class="pt-4 border-t">
+    <h3 class="font-semibold text-red-600 mb-2">Zona peligrosa</h3>
+    <p class="text-sm text-gray-500 mb-3">Elimina tu negocio y todos los usuarios de la app. La hoja de cálculo permanece en tu Google Drive para que no pierdas tus registros.</p>
+    <form action="/settings/eliminar-cuenta" method="POST" onsubmit="return confirm('¿Eliminar el negocio y todos los usuarios? La hoja de Google Sheets se mantendrá en tu Drive.')">
+      <button class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">Eliminar negocio de la app</button>
+    </form>
+  </div>
+  <% } %>
 </div>
 <%- include('partials/footer') %>

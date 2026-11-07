@@ -650,6 +650,16 @@ app.post('/superadmin/usuario/:id/eliminar', requireAuth, requireSuperAdmin, (re
   res.redirect(tid ? `/superadmin/tenant/${tid}` : '/superadmin');
 });
 
+app.post('/settings/eliminar-cuenta', requireAuth, requireRole('admin'), (req, res, next) => {
+  // Elimina el negocio y usuarios de la app, pero NO la hoja de Google Sheets (permanece en el Drive del dueño)
+  const storeMod = require('./services/store');
+  if (req.tenant) storeMod.deleteTenant(req.tenant.id);
+  req.logout(err => {
+    if (err) return next(err);
+    res.redirect('/login');
+  });
+});
+
 app.post('/settings', requireAuth, requireRole('admin'), (req, res) => {
   if (!req.tenant) return res.redirect('/onboarding');
   store.updateTenant(req.tenant.id, {
