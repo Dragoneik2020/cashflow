@@ -105,14 +105,26 @@ app.locals.money = (n) => {
   return num.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 };
 
+const SUPER_ADMIN_EMAIL = 'dragoneik2010@gmail.com';
+
+function isSuperAdmin(user) {
+  return !!user && (user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL;
+}
+
 // Roles
 function requireRole(...roles) {
   return (req, res, next) => {
+    if (isSuperAdmin(req.user)) return next();
     if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).send('Sin permisos para esta acción.');
     }
     next();
   };
+}
+
+function requireSuperAdmin(req, res, next) {
+  if (!isSuperAdmin(req.user)) return res.status(403).send('Acceso restringido al super administrador.');
+  next();
 }
 
 // Routes
@@ -551,6 +563,47 @@ app.post('/usuarios/:id/eliminar', requireAuth, requireRole('admin'), (req, res)
     storeMod.deleteUser(req.params.id);
   }
   res.redirect('/usuarios');
+});
+
+// Super Admin
+app.get('/superadmin', requireAuth, requireSuperAdmin, (req, res) => {
+  const storeMod = require('./services/store');
+  const tenants = storeMod.getAllTenants();
+  const users = storeMod.getAllUsers();
+  const summary = tenants.map(t => ({
+    ...t,
+    users: users.filter(u => u.tenantId === t.id),
+  }));
+  res.render('superadmin/index', { title: 'Super Admin', tenant: req.tenant, user: req.user, tenants: summary });
+});
+
+app.get('/superadmin/tenant/:id', requireAuth, requireSuperAdmin, async (req, res) => {
+  const storeMod = require('./services/store');
+  const t = storeMod.findTenantById(req.params.id);
+  if (!t) return res.status(404).send('Negocio no encontrado');
+  const users = storeMod.getAllUsers().filter(u => u.tenantId === t.id);
+  res.render('superadmin/tenant', { title: 'Negocio · ' + t.name, tenant: req.tenant, user: req.user, biz: t, usuarios: users });
+});
+
+app.post('/superadmin/tenant/:id/eliminar', requireAuth, requireSuperAdmin, (req, res) => {
+  const storeMod = require('./services/store');
+  storeMod.deleteTenant(req.params.id);
+  res.redirect('/superadmin');
+});
+
+app.post('/superadmin/usuario/:id/rol', requireAuth, requireSuperAdmin, (req, res) => {
+  const storeMod = require('./services/store');
+  storeMod.updateUser(req.params.id, { role: req.body.role });
+  const u = storeMod.findUserById(req.params.id);
+  res.redirect(u ? `/superadmin/tenant/${u.tenantId}` : '/superadmin');
+});
+
+app.post('/superadmin/usuario/:id/eliminar', requireAuth, requireSuperAdmin, (req, res) => {
+  const storeMod = require('./services/store');
+  const u = storeMod.findUserById(req.params.id);
+  const tid = u ? u.tenantId : null;
+  storeMod.deleteUser(req.params.id);
+  res.redirect(tid ? `/superadmin/tenant/${tid}` : '/superadmin');
 });
 
 // Settings

@@ -39,6 +39,22 @@ const store = {
   findTenantBySlug(slug) {
     return read().tenants.find(t => t.slug === slug) || null;
   },
+  getAllTenants() {
+    return read().tenants;
+  },
+  getAllUsers() {
+    return read().users;
+  },
+  deleteTenant(id) {
+    const db = read();
+    const idx = db.tenants.findIndex(t => t.id === id);
+    if (idx === -1) return false;
+    db.tenants.splice(idx, 1);
+    // eliminar usuarios del tenant
+    db.users = db.users.filter(u => u.tenantId !== id);
+    write(db);
+    return true;
+  },
   createTenant(data) {
     const db = read();
     const tenant = {

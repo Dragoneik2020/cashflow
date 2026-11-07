@@ -1,0 +1,62 @@
+<!-- views/superadmin/tenant.ejs -->
+<%- include('../partials/header') %>
+<h1 class="text-2xl font-bold mb-2"><%= biz.name %></h1>
+<p class="text-gray-500 mb-6 text-sm">Slug: <%= biz.slug %> · Creado: <%= (biz.createdAt||'').slice(0,10) %></p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+  <div class="bg-white rounded-lg shadow p-4">
+    <div class="text-sm text-gray-500 mb-1">Hoja de cálculo</div>
+    <% if (biz.spreadsheetUrl) { %>
+      <a href="<%= biz.spreadsheetUrl %>" target="_blank" class="text-blue-600 hover:underline break-all"><%= biz.spreadsheetUrl %></a>
+    <% } else { %>
+      <span class="text-gray-400">Sin hoja asignada</span>
+    <% } %>
+  </div>
+  <div class="bg-white rounded-lg shadow p-4">
+    <div class="text-sm text-gray-500 mb-1">ID del negocio</div>
+    <code class="text-xs"><%= biz.id %></code>
+  </div>
+</div>
+
+<h2 class="font-semibold mb-2">Usuarios (<%= usuarios.length %>)</h2>
+<div class="bg-white rounded-lg shadow overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-600">
+      <tr>
+        <th class="text-left p-3">Nombre</th>
+        <th class="text-left p-3">Email</th>
+        <th class="text-left p-3">Rol</th>
+        <th class="text-left p-3">Vinculado</th>
+        <th class="p-3"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% usuarios.forEach(u => { %>
+      <tr class="border-t">
+        <td class="p-3"><%= u.name %></td>
+        <td class="p-3"><%= u.email %></td>
+        <td class="p-3">
+          <form action="/superadmin/usuario/<%= u.id %>/rol" method="POST" class="inline">
+            <select name="role" onchange="this.form.submit()" class="border rounded px-2 py-1 text-xs">
+              <option value="admin" <%= u.role==='admin'?'selected':'' %>>Administrador</option>
+              <option value="operador" <%= u.role==='operador'?'selected':'' %>>Operador</option>
+            </select>
+          </form>
+        </td>
+        <td class="p-3 text-xs"><%= u.googleId ? 'Sí' : 'Pendiente' %></td>
+        <td class="p-3 text-right">
+          <form action="/superadmin/usuario/<%= u.id %>/eliminar" method="POST" class="inline" onsubmit="return confirm('¿Eliminar usuario?')">
+            <button class="text-red-600 hover:underline text-xs">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      <% }) %>
+      <% if (!usuarios.length) { %><tr><td colspan="5" class="text-center text-gray-400 py-6">Sin usuarios</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<div class="mt-6">
+  <a href="/superadmin" class="text-blue-600 hover:underline">← Volver a la lista de negocios</a>
+</div>
+<%- include('../partials/footer') %>
