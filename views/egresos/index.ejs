@@ -8,7 +8,7 @@
   </div>
 </div>
 <div id="egresos-table" class="bg-white rounded-lg shadow overflow-x-auto"
-     hx-get="/egresos" hx-select="#egresos-table" hx-target="#egresos-table" hx-swap="outerHTML" hx-trigger="every 20s[document.visibilityState=='visible']">
+     hx-get="/egresos" hx-select="#egresos-table" hx-target="#egresos-table" hx-swap="outerHTML" hx-trigger="every 20s[document.visibilityState=='visible' && !document.querySelector('input:focus,textarea:focus,select:focus')]">
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-600">
       <tr>
