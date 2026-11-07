@@ -330,6 +330,26 @@ app.post('/pedidos/:row/estado', requireAuth, async (req, res) => {
   res.redirect('/pedidos');
 });
 
+app.post('/pedidos/:row/convertir-ingreso', requireAuth, async (req, res) => {
+  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
+  const existing = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));
+  if (existing && existing.estado !== 'Convertido a ingreso') {
+    const i = {
+      id: sheets.uuidv4(),
+      fecha: existing.fecha || new Date().toISOString().slice(0, 10),
+      concepto: 'Pedido: ' + (existing.descripcion || ''),
+      categoria: 'Ventas',
+      monto: parseFloat(existing.total) || 0,
+      fuente: existing.proveedor || '',
+      notas: existing.notas || '',
+    };
+    await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', sheets.ingresoToRow(i));
+    existing.estado = 'Convertido a ingreso';
+    await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', req.params.row, sheets.pedidoToRow(existing));
+  }
+  res.redirect('/ingresos');
+});
+
 app.delete('/pedidos/:row', requireAuth, requireRole('admin'), async (req, res) => {
   await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', req.params.row);
   res.redirect('/pedidos');
