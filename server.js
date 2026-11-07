@@ -345,6 +345,23 @@ app.post('/pedidos/:row/edit', requireAuth, async (req, res) => {
     existing.estado = req.body.estado || existing.estado;
     existing.notas = req.body.notas;
     await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', req.params.row, sheets.pedidoToRow(existing));
+
+    // Sincronizar con ingreso vinculado (si el pedido estaba convertido a ingreso)
+    const ingresos = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso');
+    const linked = ingresos.map(sheets.rowToIngreso).find(i => i.pedidoId === existing.id);
+    if (linked) {
+      if (existing.estado === 'Convertido a ingreso') {
+        linked.fecha = existing.fecha;
+        linked.concepto = 'Pedido: ' + (existing.descripcion || '');
+        linked.monto = parseFloat(existing.total) || 0;
+        linked.fuente = existing.proveedor || '';
+        linked.notas = existing.notas || '';
+        await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', linked._row, sheets.ingresoToRow(linked));
+      } else {
+        // Si ya no está convertido, eliminar el ingreso vinculado
+        await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', linked._row);
+      }
+    }
   }
   res.redirect('/pedidos');
 });
@@ -371,6 +388,7 @@ app.post('/pedidos/:row/convertir-ingreso', requireAuth, async (req, res) => {
       monto: parseFloat(existing.total) || 0,
       fuente: existing.proveedor || '',
       notas: existing.notas || '',
+      pedidoId: existing.id,
     };
     await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', sheets.ingresoToRow(i));
     existing.estado = 'Convertido a ingreso';
@@ -579,8 +597,8 @@ app.get('/export/:entity', requireAuth, async (req, res) => {
       rows = list.map(p => [p.id,p.fecha,p.proveedor,p.descripcion,p.cantidad,p.precioUnit,p.total,p.estado,p.notas]);
     } else if (entity === 'ingresos') {
       const list = (await sheets.getAll(rt, sid, 'ingreso')).map(sheets.rowToIngreso);
-      headers = ['ID','Fecha','Concepto','Categoría','Monto','Fuente','Notas'];
-      rows = list.map(i => [i.id,i.fecha,i.concepto,i.categoria,i.monto,i.fuente,i.notas]);
+      headers = ['ID','Fecha','Concepto','Categoría','Monto','Fuente','Notas','PedidoID'];
+      rows = list.map(i => [i.id,i.fecha,i.concepto,i.categoria,i.monto,i.fuente,i.notas,i.pedidoId]);
     } else if (entity === 'egresos') {
       const list = (await sheets.getAll(rt, sid, 'egreso')).map(sheets.rowToEgreso);
       headers = ['ID','Fecha','Concepto','Categoría','Monto','Proveedor','Notas'];

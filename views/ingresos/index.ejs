@@ -16,6 +16,7 @@
         <th class="text-left p-3">Concepto</th>
         <th class="text-left p-3">Categoría</th>
         <th class="text-left p-3">Fuente</th>
+        <th class="text-left p-3">Origen</th>
         <th class="text-right p-3">Monto</th>
         <th class="p-3"></th>
       </tr>
@@ -27,6 +28,7 @@
         <td class="p-3"><%= i.concepto %></td>
         <td class="p-3"><%= i.categoria %></td>
         <td class="p-3"><%= i.fuente %></td>
+        <td class="p-3 text-xs"><%= i.pedidoId ? 'Pedido' : 'Manual' %></td>
         <td class="p-3 text-right text-green-600 font-medium"><%= money(i.monto) %></td>
         <td class="p-3 text-right">
           <form action="/ingresos/<%= i._row %>" method="POST" class="inline" onsubmit="return confirm('¿Eliminar ingreso?')">
@@ -36,7 +38,7 @@
         </td>
       </tr>
       <% }) %>
-      <% if (!ingresos.length) { %><tr><td colspan="6" class="text-center text-gray-400 py-6">Sin ingresos</td></tr><% } %>
+      <% if (!ingresos.length) { %><tr><td colspan="7" class="text-center text-gray-400 py-6">Sin ingresos</td></tr><% } %>
     </tbody>
   </table>
 </div>

@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 
 const SHEET_HEADERS = {
   Pedidos: ['ID', 'Fecha', 'ProveedorID', 'Proveedor', 'Descripción', 'Cantidad', 'PrecioUnit', 'Total', 'Estado', 'Notas'],
-  Ingresos: ['ID', 'Fecha', 'Concepto', 'Categoría', 'Monto', 'Fuente', 'Notas'],
+  Ingresos: ['ID', 'Fecha', 'Concepto', 'Categoría', 'Monto', 'Fuente', 'Notas', 'PedidoID'],
   Egresos: ['ID', 'Fecha', 'Concepto', 'Categoría', 'Monto', 'Proveedor', 'Notas'],
   Proveedores: ['ID', 'Nombre', 'RUT', 'Contacto', 'Teléfono', 'Email', 'Dirección', 'Notas', 'Creado'],
   Inventario: ['ID', 'Producto', 'Categoría', 'Cantidad', 'Unidad', 'PrecioCosto', 'PrecioVenta', 'Proveedor', 'StockMinimo', 'Notas', 'Actualizado'],
@@ -165,10 +165,10 @@ function rowToPedido(r) {
 }
 
 function ingresoToRow(i) {
-  return [i.id, i.fecha, i.concepto, i.categoria || '', i.monto, i.fuente || '', i.notas || ''];
+  return [i.id, i.fecha, i.concepto, i.categoria || '', i.monto, i.fuente || '', i.notas || '', i.pedidoId || ''];
 }
 function rowToIngreso(r) {
-  return { id: r.ID, fecha: r.Fecha, concepto: r.Concepto, categoria: r.Categoría, monto: r.Monto, fuente: r.Fuente, notas: r.Notas, _row: r._row };
+  return { id: r.ID, fecha: r.Fecha, concepto: r.Concepto, categoria: r.Categoría, monto: r.Monto, fuente: r.Fuente, notas: r.Notas, pedidoId: r.PedidoID, _row: r._row };
 }
 
 function egresoToRow(e) {
