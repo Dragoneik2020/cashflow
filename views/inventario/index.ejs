@@ -7,6 +7,7 @@
     <a href="/inventario/nuevo" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">+ Nuevo</a>
   </div>
 </div>
+<div id="inventario-content" hx-get="/inventario" hx-select="#inventario-content" hx-target="#inventario-content" hx-swap="outerHTML" hx-trigger="every 20s[document.visibilityState=='visible']">
 <div class="bg-white rounded-lg shadow overflow-x-auto mb-6">
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-600">
@@ -80,5 +81,6 @@
       <% if (!movimientos.length) { %><tr><td colspan="5" class="text-center text-gray-400 py-6">Sin movimientos</td></tr><% } %>
     </tbody>
   </table>
+</div>
 </div>
 <%- include('../partials/footer') %>

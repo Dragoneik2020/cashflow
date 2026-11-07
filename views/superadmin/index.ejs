@@ -18,7 +18,8 @@
   </div>
 </div>
 
-<div class="bg-white rounded-lg shadow overflow-x-auto">
+<div id="superadmin-table" class="bg-white rounded-lg shadow overflow-x-auto"
+     hx-get="/superadmin" hx-select="#superadmin-table" hx-target="#superadmin-table" hx-swap="outerHTML" hx-trigger="every 20s[document.visibilityState=='visible']">
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-600">
       <tr>

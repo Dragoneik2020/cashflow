@@ -3,21 +3,7 @@
     </main>
   </div>
   <script>
-    // Actualización "en vivo": recarga los datos periódicamente si no hay un campo enfocado (evita perder escritura en formularios)
-    (function() {
-      const INTERVAL = 20000;
-      setInterval(function() {
-        const active = document.activeElement;
-        const path = window.location.pathname;
-        const isForm = /\/(nuevo|edit|onboarding)/.test(path) || path.includes('/form');
-        if (isForm) return;
-        const typing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
-        if (typing) return;
-        if (document.visibilityState !== 'visible') return;
-        if (window.__noAutoRefresh) return;
-        window.location.reload();
-      }, INTERVAL);
-    })();
+    // HTMX ya gestiona la actualización parcial; no se requiere recarga completa.
   </script>
 </body>
 </html>

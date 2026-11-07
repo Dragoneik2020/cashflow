@@ -7,7 +7,8 @@
     <a href="/egresos/nuevo" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">+ Nuevo</a>
   </div>
 </div>
-<div class="bg-white rounded-lg shadow overflow-x-auto">
+<div id="egresos-table" class="bg-white rounded-lg shadow overflow-x-auto"
+     hx-get="/egresos" hx-select="#egresos-table" hx-target="#egresos-table" hx-swap="outerHTML" hx-trigger="every 20s[document.visibilityState=='visible']">
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-600">
       <tr>
