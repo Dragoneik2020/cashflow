@@ -9,7 +9,7 @@
     <label class="block text-sm font-medium mb-1">RUT</label>
     <input name="rut" value="<%= proveedor ? (proveedor.rut || '') : '' %>" placeholder="12.345.678-9" class="w-full border rounded px-3 py-2" />
   </div>
-  <div class="grid grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div>
       <label class="block text-sm font-medium mb-1">Contacto</label>
       <input name="contacto" value="<%= proveedor ? proveedor.contacto : '' %>" class="w-full border rounded px-3 py-2" />

@@ -2,7 +2,7 @@
 <%- include('../partials/header') %>
 <h1 class="text-2xl font-bold mb-4">Nuevo ingreso</h1>
 <form action="<%= action %>" method="POST" class="bg-white rounded-lg shadow p-6 max-w-2xl space-y-4">
-  <div class="grid grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div>
       <label class="block text-sm font-medium mb-1">Fecha</label>
       <input type="date" name="fecha" value="<%= new Date().toISOString().slice(0,10) %>" class="w-full border rounded px-3 py-2" />
@@ -16,7 +16,7 @@
     <label class="block text-sm font-medium mb-1">Concepto *</label>
     <input name="concepto" required class="w-full border rounded px-3 py-2" />
   </div>
-  <div class="grid grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div>
       <label class="block text-sm font-medium mb-1">Categoría</label>
       <input name="categoria" placeholder="Ventas, Servicios, Otros" class="w-full border rounded px-3 py-2" />

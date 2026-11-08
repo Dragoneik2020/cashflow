@@ -3,7 +3,19 @@
     </main>
   </div>
   <script>
-    // HTMX ya gestiona la actualización parcial; no se requiere recarga completa.
+    (function() {
+      const btn = document.getElementById('menuBtn');
+      const close = document.getElementById('closeMenu');
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('overlay');
+      function open() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
+      function closeMenu() { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
+      if (btn) btn.addEventListener('click', open);
+      if (close) close.addEventListener('click', closeMenu);
+      if (overlay) overlay.addEventListener('click', closeMenu);
+      // cerrar al navegar
+      sidebar && sidebar.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { if (window.innerWidth < 1024) closeMenu(); }));
+    })();
   </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <h1 class="text-2xl font-bold mb-2"><%= biz.name %></h1>
 <p class="text-gray-500 mb-6 text-sm">Slug: <%= biz.slug %> · Creado: <%= (biz.createdAt||'').slice(0,10) %></p>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+<div class="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
   <div class="bg-white rounded-lg shadow p-4">
     <div class="text-sm text-gray-500 mb-1">RUT</div>
     <div><%= biz.rut || '—' %></div>

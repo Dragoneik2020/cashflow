@@ -14,10 +14,25 @@
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+  <!-- Top bar mobile -->
+  <div class="lg:hidden bg-slate-900 text-white flex items-center justify-between p-3 sticky top-0 z-40">
+    <div class="flex items-center gap-2">
+      <button id="menuBtn" class="p-2 rounded hover:bg-slate-800" aria-label="Menú">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <span class="text-lg font-bold">CashFlow</span>
+    </div>
+    <span class="text-xs text-slate-300 truncate max-w-[40%]"><%= tenant ? tenant.name : '' %></span>
+  </div>
+
   <div class="flex min-h-screen">
-    <aside class="w-60 bg-slate-900 text-slate-200 flex flex-col">
-      <div class="p-4 text-xl font-bold text-white border-b border-slate-700">CashFlow</div>
-      <nav class="flex-1 p-2 space-y-1 sidebar">
+    <aside id="sidebar" class="fixed lg:static inset-y-0 left-0 z-30 w-64 bg-slate-900 text-slate-200 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-200">
+      <div class="p-4 text-xl font-bold text-white border-b border-slate-700 hidden lg:block">CashFlow</div>
+      <div class="lg:hidden p-4 text-xl font-bold text-white border-b border-slate-700 flex items-center justify-between">
+        <span>Menú</span>
+        <button id="closeMenu" class="p-1 rounded hover:bg-slate-800">✕</button>
+      </div>
+      <nav class="flex-1 p-2 space-y-1 sidebar overflow-y-auto">
         <a href="/dashboard" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Dashboard'?'active':'' %>">Dashboard</a>
         <a href="/proveedores" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Proveedores'?'active':'' %>">Proveedores</a>
         <a href="/pedidos" class="block px-3 py-2 rounded hover:bg-slate-800 <%= title==='Pedidos'?'active':'' %>">Pedidos</a>
@@ -39,5 +54,7 @@
         <a href="/logout" class="block mt-1 text-slate-400 hover:text-white">Cerrar sesión</a>
       </div>
     </aside>
-    <main class="flex-1 p-6">
+    <!-- Overlay mobile -->
+    <div id="overlay" class="fixed inset-0 bg-black/50 z-20 hidden lg:hidden"></div>
+    <main class="flex-1 p-3 sm:p-6 lg:ml-0">
       <div class="max-w-6xl mx-auto">
