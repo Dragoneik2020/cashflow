@@ -206,7 +206,10 @@ app.get('/dashboard', requireAuth, async (req, res) => {
     const totalIngresos = ingresos.reduce((s, i) => s + (parseFloat(i.Monto) || 0), 0);
     const totalEgresos = egresos.reduce((s, e) => s + (parseFloat(e.Monto) || 0), 0);
     const saldo = totalIngresos - totalEgresos;
-    const pedidosPendientes = pedidos.filter(p => (p.Estado || '').toLowerCase() !== 'completado').length;
+    const pedidosPendientes = pedidos.filter(p => ['pendiente','en proceso'].includes((p.Estado || '').toLowerCase())).length;
+    const pedidosCompletados = pedidos.filter(p => (p.Estado || '').toLowerCase() === 'completado').length;
+    const pedidosConvertidos = pedidos.filter(p => (p.Estado || '').toLowerCase() === 'convertido a ingreso').length;
+    const pedidosCancelados = pedidos.filter(p => (p.Estado || '').toLowerCase() === 'cancelado').length;
 
     // serie mensual
     const months = {};
@@ -228,7 +231,7 @@ app.get('/dashboard', requireAuth, async (req, res) => {
       title: 'Dashboard',
       tenant: req.tenant,
       user: req.user,
-      totalIngresos, totalEgresos, saldo, pedidosPendientes,
+      totalIngresos, totalEgresos, saldo, pedidosPendientes, pedidosCompletados, pedidosConvertidos, pedidosCancelados,
       numProveedores: proveedores.length,
       series: JSON.stringify(series),
       ultimosIngresos: ingresos.slice(-5).reverse(),
