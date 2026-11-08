@@ -92,8 +92,8 @@ async function requireAuth(req, res, next) {
   req.user = user;
   req.tenant = user.tenantId ? store.findTenantById(user.tenantId) : null;
   // si no tiene negocio, enviar a onboarding (excepto rutas de onboarding/auth)
-  const openPaths = ['/onboarding', '/logout'];
-  if (!req.tenant && !openPaths.includes(req.path) && !req.path.startsWith('/auth/')) {
+  const openPaths = ['/onboarding', '/logout', '/admin/import-db', '/superadmin'];
+  if (!req.tenant && !openPaths.includes(req.path) && !req.path.startsWith('/auth/') && !req.path.startsWith('/admin/') && !req.path.startsWith('/superadmin')) {
     return res.redirect('/onboarding');
   }
   // auto-crear hoja si falta
