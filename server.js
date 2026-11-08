@@ -407,6 +407,16 @@ app.post('/pedidos/:row/convertir-ingreso', requireAuth, async (req, res) => {
 });
 
 app.delete('/pedidos/:row', requireAuth, requireRole('admin'), async (req, res) => {
+  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
+  const ped = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));
+  if (ped && ped.id) {
+    // Eliminar ingreso vinculado si existe
+    const ingresos = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso');
+    const linked = ingresos.map(sheets.rowToIngreso).find(i => i.pedidoId === ped.id);
+    if (linked) {
+      await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', linked._row);
+    }
+  }
   await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', req.params.row);
   res.redirect('/pedidos');
 });
@@ -436,6 +446,17 @@ app.post('/ingresos', requireAuth, async (req, res) => {
 });
 
 app.delete('/ingresos/:row', requireAuth, requireRole('admin'), async (req, res) => {
+  // Si el ingreso proviene de un pedido, reactivar el pedido para poder volver a pasarlo a ingreso
+  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso');
+  const ing = list.map(sheets.rowToIngreso).find(i => String(i._row) === String(req.params.row));
+  if (ing && ing.pedidoId) {
+    const pedidos = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
+    const ped = pedidos.map(sheets.rowToPedido).find(p => p.id === ing.pedidoId);
+    if (ped && ped.estado === 'Convertido a ingreso') {
+      ped.estado = 'Completado';
+      await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', ped._row, sheets.pedidoToRow(ped));
+    }
+  }
   await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', req.params.row);
   res.redirect('/ingresos');
 });
