@@ -3,7 +3,7 @@
 <h1 class="text-2xl font-bold mb-4">Dashboard</h1>
 
 <div id="dashboard-live" hx-get="/dashboard" hx-select="#dashboard-live" hx-target="#dashboard-live" hx-swap="outerHTML" hx-trigger="every 20s[document.visibilityState=='visible' && !document.querySelector('input:focus,textarea:focus,select:focus')]">
-<div class="grid grid-cols-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
   <div class="bg-white rounded-lg shadow p-4">
     <div class="text-sm text-gray-500">Ingresos totales</div>
     <div class="text-2xl font-bold text-green-600"><%= money(totalIngresos) %></div>
@@ -34,7 +34,7 @@
 </div>
 
 <div id="dashboard-recent" hx-get="/dashboard" hx-select="#dashboard-recent" hx-target="#dashboard-recent" hx-swap="outerHTML" hx-trigger="every 20s[document.visibilityState=='visible' && !document.querySelector('input:focus,textarea:focus,select:focus')]">
-<div class="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
   <div class="bg-white rounded-lg shadow p-4">
     <h2 class="font-semibold mb-2">Últimos ingresos</h2>
     <table class="w-full text-sm">

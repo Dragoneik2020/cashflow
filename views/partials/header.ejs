@@ -13,9 +13,9 @@
     .sidebar a.active { background: #1e40af; color: #fff; }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gray-100 min-h-screen overflow-x-hidden">
   <!-- Top bar mobile -->
-  <div class="lg:hidden bg-slate-900 text-white flex items-center justify-between p-3 sticky top-0 z-40">
+  <div class="lg:hidden bg-slate-900 text-white flex items-center justify-between p-2 sm:p-3 sticky top-0 z-40">
     <div class="flex items-center gap-2">
       <button id="menuBtn" class="p-2 rounded hover:bg-slate-800" aria-label="Menú">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -47,7 +47,7 @@
         <a href="/superadmin" class="block px-3 py-2 rounded hover:bg-amber-700 bg-amber-600 text-white font-semibold <%= title==='Super Admin' || title.startsWith('Negocio') ?'active':'' %>">Super Admin</a>
         <% } %>
       </nav>
-      <div class="p-3 border-t border-slate-700 text-sm">
+      <div class="p-2 sm:p-3 border-t border-slate-700 text-sm">
         <div class="truncate"><%= user ? user.name : '' %></div>
         <div class="truncate text-slate-400 text-xs"><%= tenant ? tenant.name : '' %></div>
         <a href="/settings" class="block mt-2 text-slate-300 hover:text-white">Configuración</a>
@@ -56,5 +56,5 @@
     </aside>
     <!-- Overlay mobile -->
     <div id="overlay" class="fixed inset-0 bg-black/50 z-20 hidden lg:hidden"></div>
-    <main class="flex-1 p-3 sm:p-6 lg:ml-0">
+    <main class="flex-1 p-2 sm:p-3 sm:p-6 lg:ml-0">
       <div class="max-w-6xl mx-auto">

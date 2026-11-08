@@ -5,7 +5,7 @@
 
 <div class="bg-white rounded-lg shadow p-6 mb-6 max-w-2xl">
   <h2 class="font-semibold mb-3">Agregar usuario</h2>
-  <form action="/usuarios" method="POST" class="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-3 gap-3">
+  <form action="/usuarios" method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:p-3">
     <input name="name" placeholder="Nombre" class="border rounded px-3 py-2" />
     <input type="email" name="email" required placeholder="correo@ejemplo.com" class="border rounded px-3 py-2" />
     <select name="role" class="border rounded px-3 py-2">
@@ -22,20 +22,20 @@
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-600">
       <tr>
-        <th class="text-left p-3">Nombre</th>
-        <th class="text-left p-3">Email</th>
-        <th class="text-left p-3">Rol</th>
-        <th class="text-left p-3">Vinculado</th>
-        <th class="p-3"></th>
+        <th class="text-left p-2 sm:p-3">Nombre</th>
+        <th class="text-left p-2 sm:p-3">Email</th>
+        <th class="text-left p-2 sm:p-3">Rol</th>
+        <th class="text-left p-2 sm:p-3 hidden sm:table-cell">Vinculado</th>
+        <th class="p-2 sm:p-3"></th>
       </tr>
     </thead>
     <tbody>
       <% usuarios.forEach(u => { %>
       <tr class="border-t">
-        <td class="p-3">
-          <form action="/usuarios/<%= u.id %>/editar" method="POST" class="flex gap-2 items-center">
-            <input name="name" value="<%= u.name %>" class="border rounded px-2 py-1 text-xs w-32" />
-            <input type="email" name="email" value="<%= u.email %>" class="border rounded px-2 py-1 text-xs w-40" />
+        <td class="p-2 sm:p-3">
+          <form action="/usuarios/<%= u.id %>/editar" method="POST" class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+            <input name="name" value="<%= u.name %>" class="border rounded px-2 py-1 text-xs w-full sm:w-32" />
+            <input type="email" name="email" value="<%= u.email %>" class="border rounded px-2 py-1 text-xs w-full sm:w-40" />
             <select name="role" class="border rounded px-2 py-1 text-xs">
               <option value="admin" <%= u.role==='admin'?'selected':'' %>>Administrador</option>
               <option value="operador" <%= u.role==='operador'?'selected':'' %>>Operador</option>
@@ -43,10 +43,10 @@
             <button class="text-blue-600 hover:underline text-xs">Guardar</button>
           </form>
         </td>
-        <td class="p-3 text-gray-500"><%= u.email %></td>
-        <td class="p-3"><%= u.role %></td>
-        <td class="p-3 text-xs"><%= u.googleId ? 'Sí' : 'Pendiente' %></td>
-        <td class="p-3 text-right">
+        <td class="p-2 sm:p-3 text-gray-500"><%= u.email %></td>
+        <td class="p-2 sm:p-3"><%= u.role %></td>
+        <td class="p-2 sm:p-3 text-xs hidden sm:table-cell"><%= u.googleId ? 'Sí' : 'Pendiente' %></td>
+        <td class="p-2 sm:p-3 text-right">
           <% if (u.id !== user.id) { %>
           <form action="/usuarios/<%= u.id %>/eliminar" method="POST" class="inline" onsubmit="return confirm('¿Eliminar usuario?')">
             <button class="text-red-600 hover:underline text-xs">Eliminar</button>

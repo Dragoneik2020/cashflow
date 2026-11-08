@@ -12,23 +12,23 @@
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-600">
       <tr>
-        <th class="text-left p-3">Fecha</th>
-        <th class="text-left p-3">Concepto</th>
-        <th class="text-left p-3">Categoría</th>
-        <th class="text-left p-3">Proveedor</th>
-        <th class="text-right p-3">Monto</th>
-        <th class="p-3"></th>
+        <th class="text-left p-2 sm:p-3">Fecha</th>
+        <th class="text-left p-2 sm:p-3">Concepto</th>
+        <th class="text-left p-2 sm:p-3 hidden sm:table-cell">Categoría</th>
+        <th class="text-left p-2 sm:p-3 hidden sm:table-cell">Proveedor</th>
+        <th class="text-right p-2 sm:p-3">Monto</th>
+        <th class="p-2 sm:p-3"></th>
       </tr>
     </thead>
     <tbody>
       <% egresos.forEach(e => { %>
       <tr class="border-t hover:bg-gray-50">
-        <td class="p-3"><%= e.fecha %></td>
-        <td class="p-3"><%= e.concepto %></td>
-        <td class="p-3"><%= e.categoria %></td>
-        <td class="p-3"><%= e.proveedor %></td>
-        <td class="p-3 text-right text-red-600 font-medium"><%= money(e.monto) %></td>
-        <td class="p-3 text-right">
+        <td class="p-2 sm:p-3"><%= e.fecha %></td>
+        <td class="p-2 sm:p-3"><%= e.concepto %></td>
+        <td class="p-2 sm:p-3 hidden sm:table-cell"><%= e.categoria %></td>
+        <td class="p-2 sm:p-3 hidden sm:table-cell"><%= e.proveedor %></td>
+        <td class="p-2 sm:p-3 text-right text-red-600 font-medium"><%= money(e.monto) %></td>
+        <td class="p-2 sm:p-3 text-right">
           <form action="/egresos/<%= e._row %>" method="POST" class="inline" onsubmit="return confirm('¿Eliminar egreso?')">
             <input type="hidden" name="_method" value="DELETE" />
             <button class="text-red-600 hover:underline">Eliminar</button>
