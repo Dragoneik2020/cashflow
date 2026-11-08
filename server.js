@@ -40,14 +40,14 @@ passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   callbackURL: process.env.GOOGLE_CALLBACK_URL,
-  scope: ['profile', 'email', 'https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive.file'],
+  scope: ['openid', 'email', 'https://www.googleapis.com/auth/spreadsheets'],
   accessType: 'offline',
   prompt: 'consent',
 }, async (accessToken, refreshToken, profile, done) => {
   try {
-    const email = profile.emails && profile.emails[0] ? profile.emails[0].value : '';
-    const name = profile.displayName || email;
-    const avatar = profile.photos && profile.photos[0] ? profile.photos[0].value : null;
+    const email = profile.emails && profile.emails[0] ? profile.emails[0].value : (profile._json && profile._json.email ? profile._json.email : '');
+    const name = email ? email.split('@')[0] : 'Usuario';
+    const avatar = null;
     let user = store.findUserByGoogleId(profile.id);
     if (!user && email) {
       // vincular con usuario pendiente creado por el admin (por email)
@@ -151,7 +151,7 @@ app.get('/', (req, res) => {
 
 app.get('/login', (req, res) => res.render('login', { title: 'Iniciar sesión' }));
 
-app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive.file'], accessType: 'offline', prompt: 'consent' }));
+app.get('/auth/google', passport.authenticate('google', { scope: ['openid', 'email', 'https://www.googleapis.com/auth/spreadsheets'], accessType: 'offline', prompt: 'consent' }));
 app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login' }), (req, res) => {
   const u = store.findUserById(req.user.id || req.user);
   if (u && !u.tenantId) return res.redirect('/onboarding');

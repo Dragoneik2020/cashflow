@@ -24,7 +24,6 @@ function authClient(refreshToken) {
 async function createSpreadsheet(refreshToken, title) {
   const auth = authClient(refreshToken);
   const sheets = google.sheets({ version: 'v4', auth });
-  const drive = google.drive({ version: 'v3', auth });
 
   // Crear con las hojas necesarias
   const sheetTitles = Object.keys(SHEET_HEADERS);
@@ -56,8 +55,9 @@ async function createSpreadsheet(refreshToken, title) {
   }));
   await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } });
 
-  const file = await drive.files.get({ fileId: spreadsheetId, fields: 'webViewLink' });
-  return { spreadsheetId, url: file.data.webViewLink };
+  // URL construida sin Drive API (menos permisos)
+  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+  return { spreadsheetId, url };
 }
 
 function sheetName(entity) {
