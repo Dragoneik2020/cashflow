@@ -471,15 +471,21 @@ app.get('/pedidos', requireAuth, async (req, res) => {
 });
 
 app.get('/pedidos/nuevo', requireAuth, async (req, res) => {
-  const proveedores = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor');
-  res.render('pedidos/form', { title: 'Nuevo pedido', tenant: req.tenant, user: req.user, pedido: null, proveedores: proveedores.map(sheets.rowToProveedor), action: '/pedidos' });
+  const data = await sheets.batchGetAll(req.sheetToken, req.tenant.spreadsheetId, ['proveedor', 'inventario']);
+  const proveedores = data.proveedor;
+  const inventario = data.inventario.map(sheets.rowToInventario);
+  res.render('pedidos/form', { title: 'Nuevo pedido', tenant: req.tenant, user: req.user, pedido: null, proveedores: proveedores.map(sheets.rowToProveedor), inventario, action: '/pedidos' });
 });
 
 app.post('/pedidos', requireAuth, async (req, res) => {
-  const proveedores = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor');
+  const data = await sheets.batchGetAll(req.sheetToken, req.tenant.spreadsheetId, ['proveedor', 'inventario']);
+  const proveedores = data.proveedor;
+  const inventario = data.inventario.map(sheets.rowToInventario);
   const prov = proveedores.map(sheets.rowToProveedor).find(p => p.id === req.body.proveedorId);
   const cantidad = parseFloat(req.body.cantidad) || 0;
   const precio = parseFloat(req.body.precioUnit) || 0;
+  const inventarioId = (req.body.inventarioId || '').trim();
+  const cantDescontar = parseFloat(req.body.cantDescontar) || 0;
   const p = {
     id: sheets.uuidv4(),
     fecha: req.body.fecha || new Date().toISOString().slice(0, 10),
@@ -490,17 +496,43 @@ app.post('/pedidos', requireAuth, async (req, res) => {
     precioUnit: precio,
     total: cantidad * precio,
     estado: req.body.estado || 'Pendiente',
+    inventarioId,
     notas: req.body.notas,
   };
   await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'pedido', sheets.pedidoToRow(p));
+
+  // Descontar stock si se indicó un producto de inventario
+  if (inventarioId && cantDescontar > 0) {
+    const item = inventario.find(i => i.id === inventarioId);
+    if (item) {
+      const nuevoStock = (parseFloat(item.cantidad) || 0) - cantDescontar;
+      const m = {
+        id: sheets.uuidv4(),
+        fecha: new Date().toISOString().slice(0, 10),
+        productoId: item.id,
+        producto: item.producto,
+        tipo: 'Salida',
+        cantidad: cantDescontar,
+        motivo: 'Pedido: ' + (p.descripcion || ''),
+        notas: p.notas || '',
+      };
+      await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'movimiento', sheets.movimientoToRow(m));
+      item.cantidad = nuevoStock;
+      item.actualizado = new Date().toISOString().slice(0, 10);
+      await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'inventario', item._row, sheets.inventarioToRow(item));
+    }
+  }
+
   res.redirect('/pedidos');
 });
 
 app.get('/pedidos/:row/edit', requireAuth, async (req, res) => {
-  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'pedido');
+  const data = await sheets.batchGetAll(req.sheetToken, req.tenant.spreadsheetId, ['pedido', 'proveedor', 'inventario']);
+  const list = data.pedido;
   const pedido = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));
-  const proveedores = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor');
-  res.render('pedidos/form', { title: 'Editar pedido', tenant: req.tenant, user: req.user, pedido, proveedores: proveedores.map(sheets.rowToProveedor), action: `/pedidos/${req.params.row}/edit` });
+  const proveedores = data.proveedor;
+  const inventario = data.inventario.map(sheets.rowToInventario);
+  res.render('pedidos/form', { title: 'Editar pedido', tenant: req.tenant, user: req.user, pedido, proveedores: proveedores.map(sheets.rowToProveedor), inventario, action: `/pedidos/${req.params.row}/edit` });
 });
 
 app.post('/pedidos/:row/edit', requireAuth, async (req, res) => {
@@ -520,6 +552,7 @@ app.post('/pedidos/:row/edit', requireAuth, async (req, res) => {
     existing.total = cantidad * precio;
     existing.estado = req.body.estado || existing.estado;
     existing.notas = req.body.notas;
+    existing.inventarioId = (req.body.inventarioId || '').trim();
     await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'pedido', req.params.row, sheets.pedidoToRow(existing));
 
     // Sincronizar con ingreso vinculado (si el pedido estaba convertido a ingreso)

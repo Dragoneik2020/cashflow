@@ -17,6 +17,25 @@
       </select>
     </div>
   </div>
+  <div class="border-t pt-4">
+    <h3 class="font-semibold mb-2 text-sm">Descontar del inventario (opcional)</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Producto de inventario</label>
+        <select name="inventarioId" class="w-full border rounded px-3 py-2">
+          <option value="">-- No descontar --</option>
+          <% (inventario || []).forEach(i => { %>
+            <option value="<%= i.id %>" <%= pedido && pedido.inventarioId===i.id?'selected':'' %>><%= i.producto %> (stock: <%= i.cantidad %>)</option>
+          <% }) %>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Cantidad a descontar</label>
+        <input type="number" step="0.01" name="cantDescontar" value="<%= pedido ? pedido.cantidad : 1 %>" class="w-full border rounded px-3 py-2" />
+      </div>
+    </div>
+    <p class="text-xs text-gray-400 mt-1">Solo se descuenta al crear el pedido. Los movimientos de inventario se registran automáticamente.</p>
+  </div>
   <div>
     <label class="block text-sm font-medium mb-1">Descripción *</label>
     <input name="descripcion" required value="<%= pedido ? pedido.descripcion : '' %>" class="w-full border rounded px-3 py-2" />

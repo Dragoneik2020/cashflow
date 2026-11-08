@@ -3,7 +3,7 @@ const { google } = require('googleapis');
 const { v4: uuidv4 } = require('uuid');
 
 const SHEET_HEADERS = {
-  Pedidos: ['ID', 'Fecha', 'ProveedorID', 'Proveedor', 'Descripción', 'Cantidad', 'PrecioUnit', 'Total', 'Estado', 'Notas'],
+  Pedidos: ['ID', 'Fecha', 'ProveedorID', 'Proveedor', 'Descripción', 'Cantidad', 'PrecioUnit', 'Total', 'Estado', 'InventarioID', 'Notas'],
   Ingresos: ['ID', 'Fecha', 'Concepto', 'Categoría', 'Monto', 'Fuente', 'Notas', 'PedidoID'],
   Egresos: ['ID', 'Fecha', 'Concepto', 'Categoría', 'Monto', 'Proveedor', 'Notas'],
   Proveedores: ['ID', 'Nombre', 'RUT', 'Contacto', 'Teléfono', 'Email', 'Dirección', 'Notas', 'Creado'],
@@ -154,13 +154,13 @@ function rowToProveedor(r) {
 }
 
 function pedidoToRow(p) {
-  return [p.id, p.fecha, p.proveedorId || '', p.proveedor || '', p.descripcion, p.cantidad, p.precioUnit, p.total, p.estado || 'Pendiente', p.notas || ''];
+  return [p.id, p.fecha, p.proveedorId || '', p.proveedor || '', p.descripcion, p.cantidad, p.precioUnit, p.total, p.estado || 'Pendiente', p.inventarioId || '', p.notas || ''];
 }
 function rowToPedido(r) {
   return {
     id: r.ID, fecha: r.Fecha, proveedorId: r.ProveedorID, proveedor: r.Proveedor,
     descripcion: r.Descripción, cantidad: r.Cantidad, precioUnit: r.PrecioUnit,
-    total: r.Total, estado: r.Estado, notas: r.Notas, _row: r._row,
+    total: r.Total, estado: r.Estado, inventarioId: r.InventarioID, notas: r.Notas, _row: r._row,
   };
 }
 
