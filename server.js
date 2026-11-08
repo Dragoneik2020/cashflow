@@ -91,6 +91,20 @@ async function requireAuth(req, res, next) {
   if (!user) return res.redirect('/login');
   req.user = user;
   req.tenant = user.tenantId ? store.findTenantById(user.tenantId) : null;
+  // Resolver token de la hoja: siempre el del dueño del negocio (admin que la creó)
+  if (req.tenant && !req.tenant.refreshToken) {
+    // Buscar un admin del mismo negocio con refreshToken
+    const allUsers = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'data', 'db.json'), 'utf8')).users;
+    const adminUser = allUsers.find(u => u.tenantId === req.tenant.id && u.role === 'admin' && u.refreshToken);
+    if (adminUser) {
+      store.updateTenant(req.tenant.id, { refreshToken: adminUser.refreshToken });
+      req.tenant = store.findTenantById(req.tenant.id);
+    } else if (user.refreshToken) {
+      store.updateTenant(req.tenant.id, { refreshToken: user.refreshToken });
+      req.tenant = store.findTenantById(req.tenant.id);
+    }
+  }
+  req.sheetToken = (req.tenant && req.tenant.refreshToken) ? req.tenant.refreshToken : user.refreshToken;
   // si no tiene negocio, enviar a onboarding (excepto rutas de onboarding/auth)
   const openPaths = ['/onboarding', '/logout', '/admin/import-db', '/superadmin'];
   if (!req.tenant && !openPaths.includes(req.path) && !req.path.startsWith('/auth/') && !req.path.startsWith('/admin/') && !req.path.startsWith('/superadmin')) {
@@ -175,12 +189,12 @@ app.post('/onboarding', requireAuth, async (req, res) => {
     return res.render('onboarding', { title: 'Crear tu negocio', tenant: null, user: req.user, error: 'El nombre del negocio es obligatorio.' });
   }
   try {
-    const tenant = store.createTenant({ name, phone, email, address, rut, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || undefined });
+    const tenant = store.createTenant({ name, phone, email, address, rut, refreshToken: req.user.refreshToken, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || undefined });
     store.updateUser(req.user.id, { tenantId: tenant.id, role: 'admin' });
     req.user = store.findUserById(req.user.id);
     // crear hoja
     try {
-      const { spreadsheetId, url } = await sheets.createSpreadsheet(req.user.refreshToken, `CashFlow - ${tenant.name}`);
+      const { spreadsheetId, url } = await sheets.createSpreadsheet(req.sheetToken, `CashFlow - ${tenant.name}`);
       store.updateTenant(tenant.id, { spreadsheetId, spreadsheetUrl: url });
     } catch (e) {
       console.error('Error creando spreadsheet:', e.message);
@@ -197,7 +211,7 @@ app.get('/logout', (req, res, next) => req.logout(err => { if (err) return next(
 // Dashboard
 app.get('/dashboard', requireAuth, async (req, res) => {
   try {
-    const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['ingreso', 'egreso', 'pedido', 'proveedor']);
+    const data = await sheets.batchGetAll(req.sheetToken, req.tenant.spreadsheetId, ['ingreso', 'egreso', 'pedido', 'proveedor']);
     const ingresos = data.ingreso;
     const egresos = data.egreso;
     const pedidos = data.pedido;
@@ -244,7 +258,7 @@ app.get('/dashboard', requireAuth, async (req, res) => {
 
 // Proveedores
 app.get('/proveedores', requireAuth, async (req, res) => {
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor');
   res.render('proveedores/index', { title: 'Proveedores', tenant: req.tenant, user: req.user, proveedores: list.map(sheets.rowToProveedor) });
 });
 
@@ -264,18 +278,18 @@ app.post('/proveedores', requireAuth, async (req, res) => {
     notas: req.body.notas,
     creado: new Date().toISOString().slice(0, 10),
   };
-  await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor', sheets.proveedorToRow(p));
+  await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'proveedor', sheets.proveedorToRow(p));
   res.redirect('/proveedores');
 });
 
 app.get('/proveedores/:row/edit', requireAuth, async (req, res) => {
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor');
   const proveedor = list.map(sheets.rowToProveedor).find(p => String(p._row) === String(req.params.row));
   res.render('proveedores/form', { title: 'Editar proveedor', tenant: req.tenant, user: req.user, proveedor, action: `/proveedores/${req.params.row}?_method=PUT` });
 });
 
 app.put('/proveedores/:row', requireAuth, async (req, res) => {
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor');
   const existing = list.map(sheets.rowToProveedor).find(p => String(p._row) === String(req.params.row));
   const p = {
     id: existing.id,
@@ -288,12 +302,12 @@ app.put('/proveedores/:row', requireAuth, async (req, res) => {
     notas: req.body.notas,
     creado: existing.creado,
   };
-  await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor', req.params.row, sheets.proveedorToRow(p));
+  await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'proveedor', req.params.row, sheets.proveedorToRow(p));
   res.redirect('/proveedores');
 });
 
 app.delete('/proveedores/:row', requireAuth, requireRole('admin'), async (req, res) => {
-  await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor', req.params.row);
+  await sheets.deleteRow(req.sheetToken, req.tenant.spreadsheetId, 'proveedor', req.params.row);
   res.redirect('/proveedores');
 });
 
@@ -361,7 +375,7 @@ app.post('/proveedores/importar', requireAuth, async (req, res) => {
       creado: new Date().toISOString().slice(0, 10),
     };
     try {
-      await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor', sheets.proveedorToRow(p));
+      await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'proveedor', sheets.proveedorToRow(p));
       ok++;
     } catch (e) { errores.push(`Fila ${r + 2}: ${e.message}`); }
   }
@@ -370,13 +384,13 @@ app.post('/proveedores/importar', requireAuth, async (req, res) => {
 
 // Importar pedidos
 app.get('/pedidos/importar', requireAuth, async (req, res) => {
-  const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+  const proveedores = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor');
   res.render('pedidos/importar', { title: 'Importar pedidos', tenant: req.tenant, user: req.user, proveedores: proveedores.map(sheets.rowToProveedor), resultado: null });
 });
 
 app.post('/pedidos/importar', requireAuth, async (req, res) => {
   const csv = (req.body.csv || '').trim();
-  const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor').then(r => r.map(sheets.rowToProveedor));
+  const proveedores = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor').then(r => r.map(sheets.rowToProveedor));
   if (!csv) {
     return res.render('pedidos/importar', { title: 'Importar pedidos', tenant: req.tenant, user: req.user, proveedores, resultado: { ok: 0, errores: ['No se recibió contenido CSV.'] } });
   }
@@ -439,7 +453,7 @@ app.post('/pedidos/importar', requireAuth, async (req, res) => {
       notas: get(row, iNotas),
     };
     try {
-      await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', sheets.pedidoToRow(p));
+      await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'pedido', sheets.pedidoToRow(p));
       ok++;
     } catch (e) { errores.push(`Fila ${r + 2}: ${e.message}`); }
   }
@@ -448,7 +462,7 @@ app.post('/pedidos/importar', requireAuth, async (req, res) => {
 
 // Pedidos
 app.get('/pedidos', requireAuth, async (req, res) => {
-  const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['pedido', 'proveedor', 'ingreso']);
+  const data = await sheets.batchGetAll(req.sheetToken, req.tenant.spreadsheetId, ['pedido', 'proveedor', 'ingreso']);
   const list = data.pedido;
   const proveedores = data.proveedor;
   const ingresos = data.ingreso.map(sheets.rowToIngreso);
@@ -457,12 +471,12 @@ app.get('/pedidos', requireAuth, async (req, res) => {
 });
 
 app.get('/pedidos/nuevo', requireAuth, async (req, res) => {
-  const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+  const proveedores = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor');
   res.render('pedidos/form', { title: 'Nuevo pedido', tenant: req.tenant, user: req.user, pedido: null, proveedores: proveedores.map(sheets.rowToProveedor), action: '/pedidos' });
 });
 
 app.post('/pedidos', requireAuth, async (req, res) => {
-  const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+  const proveedores = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor');
   const prov = proveedores.map(sheets.rowToProveedor).find(p => p.id === req.body.proveedorId);
   const cantidad = parseFloat(req.body.cantidad) || 0;
   const precio = parseFloat(req.body.precioUnit) || 0;
@@ -478,22 +492,22 @@ app.post('/pedidos', requireAuth, async (req, res) => {
     estado: req.body.estado || 'Pendiente',
     notas: req.body.notas,
   };
-  await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', sheets.pedidoToRow(p));
+  await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'pedido', sheets.pedidoToRow(p));
   res.redirect('/pedidos');
 });
 
 app.get('/pedidos/:row/edit', requireAuth, async (req, res) => {
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
+  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'pedido');
   const pedido = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));
-  const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+  const proveedores = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor');
   res.render('pedidos/form', { title: 'Editar pedido', tenant: req.tenant, user: req.user, pedido, proveedores: proveedores.map(sheets.rowToProveedor), action: `/pedidos/${req.params.row}/edit` });
 });
 
 app.post('/pedidos/:row/edit', requireAuth, async (req, res) => {
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
+  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'pedido');
   const existing = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));
   if (existing) {
-    const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+    const proveedores = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor');
     const prov = proveedores.map(sheets.rowToProveedor).find(p => p.id === req.body.proveedorId);
     const cantidad = parseFloat(req.body.cantidad) || 0;
     const precio = parseFloat(req.body.precioUnit) || 0;
@@ -506,10 +520,10 @@ app.post('/pedidos/:row/edit', requireAuth, async (req, res) => {
     existing.total = cantidad * precio;
     existing.estado = req.body.estado || existing.estado;
     existing.notas = req.body.notas;
-    await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', req.params.row, sheets.pedidoToRow(existing));
+    await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'pedido', req.params.row, sheets.pedidoToRow(existing));
 
     // Sincronizar con ingreso vinculado (si el pedido estaba convertido a ingreso)
-    const ingresos = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso');
+    const ingresos = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'ingreso');
     const linked = ingresos.map(sheets.rowToIngreso).find(i => i.pedidoId === existing.id);
     if (linked) {
       // Actualizar el ingreso vinculado para reflejar cambios del pedido
@@ -518,24 +532,24 @@ app.post('/pedidos/:row/edit', requireAuth, async (req, res) => {
       linked.monto = parseFloat(existing.total) || 0;
       linked.fuente = existing.proveedor || '';
       linked.notas = existing.notas || '';
-      await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', linked._row, sheets.ingresoToRow(linked));
+      await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'ingreso', linked._row, sheets.ingresoToRow(linked));
     }
   }
   res.redirect('/pedidos');
 });
 
 app.post('/pedidos/:row/estado', requireAuth, async (req, res) => {
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
+  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'pedido');
   const existing = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));
   if (existing) {
     existing.estado = req.body.estado;
-    await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', req.params.row, sheets.pedidoToRow(existing));
+    await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'pedido', req.params.row, sheets.pedidoToRow(existing));
   }
   res.redirect('/pedidos');
 });
 
 app.post('/pedidos/:row/convertir-ingreso', requireAuth, async (req, res) => {
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
+  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'pedido');
   const existing = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));
   if (existing && existing.estado !== 'Convertido a ingreso') {
     const i = {
@@ -548,31 +562,31 @@ app.post('/pedidos/:row/convertir-ingreso', requireAuth, async (req, res) => {
       notas: existing.notas || '',
       pedidoId: existing.id,
     };
-    await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', sheets.ingresoToRow(i));
+    await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'ingreso', sheets.ingresoToRow(i));
     existing.estado = 'Completado';
-    await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', req.params.row, sheets.pedidoToRow(existing));
+    await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'pedido', req.params.row, sheets.pedidoToRow(existing));
   }
   res.redirect('/ingresos');
 });
 
 app.delete('/pedidos/:row', requireAuth, requireRole('admin'), async (req, res) => {
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
+  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'pedido');
   const ped = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));
   if (ped && ped.id) {
     // Eliminar ingreso vinculado si existe
-    const ingresos = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso');
+    const ingresos = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'ingreso');
     const linked = ingresos.map(sheets.rowToIngreso).find(i => i.pedidoId === ped.id);
     if (linked) {
-      await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', linked._row);
+      await sheets.deleteRow(req.sheetToken, req.tenant.spreadsheetId, 'ingreso', linked._row);
     }
   }
-  await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', req.params.row);
+  await sheets.deleteRow(req.sheetToken, req.tenant.spreadsheetId, 'pedido', req.params.row);
   res.redirect('/pedidos');
 });
 
 // Ingresos
 app.get('/ingresos', requireAuth, async (req, res) => {
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso');
+  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'ingreso');
   res.render('ingresos/index', { title: 'Ingresos', tenant: req.tenant, user: req.user, ingresos: list.map(sheets.rowToIngreso) });
 });
 
@@ -590,36 +604,36 @@ app.post('/ingresos', requireAuth, async (req, res) => {
     fuente: req.body.fuente,
     notas: req.body.notas,
   };
-  await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', sheets.ingresoToRow(i));
+  await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'ingreso', sheets.ingresoToRow(i));
   res.redirect('/ingresos');
 });
 
 app.delete('/ingresos/:row', requireAuth, requireRole('admin'), async (req, res) => {
   // Si el ingreso proviene de un pedido, reactivar el pedido para poder volver a pasarlo a ingreso
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso');
+  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'ingreso');
   const ing = list.map(sheets.rowToIngreso).find(i => String(i._row) === String(req.params.row));
   if (ing && ing.pedidoId) {
-    const pedidos = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido');
+    const pedidos = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'pedido');
     const ped = pedidos.map(sheets.rowToPedido).find(p => p.id === ing.pedidoId);
     if (ped && ped.estado === 'Convertido a ingreso') {
       ped.estado = 'Completado';
-      await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', ped._row, sheets.pedidoToRow(ped));
+      await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'pedido', ped._row, sheets.pedidoToRow(ped));
     }
   }
-  await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', req.params.row);
+  await sheets.deleteRow(req.sheetToken, req.tenant.spreadsheetId, 'ingreso', req.params.row);
   res.redirect('/ingresos');
 });
 
 // Egresos
 app.get('/egresos', requireAuth, async (req, res) => {
-  const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['egreso', 'proveedor']);
+  const data = await sheets.batchGetAll(req.sheetToken, req.tenant.spreadsheetId, ['egreso', 'proveedor']);
   const list = data.egreso;
   const proveedores = data.proveedor;
   res.render('egresos/index', { title: 'Egresos', tenant: req.tenant, user: req.user, egresos: list.map(sheets.rowToEgreso), proveedores: proveedores.map(sheets.rowToProveedor) });
 });
 
 app.get('/egresos/nuevo', requireAuth, async (req, res) => {
-  const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+  const proveedores = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor');
   res.render('egresos/form', { title: 'Nuevo egreso', tenant: req.tenant, user: req.user, egreso: null, proveedores: proveedores.map(sheets.rowToProveedor), action: '/egresos' });
 });
 
@@ -633,19 +647,19 @@ app.post('/egresos', requireAuth, async (req, res) => {
     proveedor: req.body.proveedor,
     notas: req.body.notas,
   };
-  await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'egreso', sheets.egresoToRow(e));
+  await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'egreso', sheets.egresoToRow(e));
   res.redirect('/egresos');
 });
 
 app.delete('/egresos/:row', requireAuth, requireRole('admin'), async (req, res) => {
-  await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'egreso', req.params.row);
+  await sheets.deleteRow(req.sheetToken, req.tenant.spreadsheetId, 'egreso', req.params.row);
   res.redirect('/egresos');
 });
 
 // Inventario
 app.get('/inventario', requireAuth, async (req, res) => {
-  await sheets.ensureSheets(req.user.refreshToken, req.tenant.spreadsheetId);
-  const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['inventario', 'movimiento']);
+  await sheets.ensureSheets(req.sheetToken, req.tenant.spreadsheetId);
+  const data = await sheets.batchGetAll(req.sheetToken, req.tenant.spreadsheetId, ['inventario', 'movimiento']);
   const items = data.inventario;
   const movs = data.movimiento;
   res.render('inventario/index', { title: 'Inventario', tenant: req.tenant, user: req.user, items: items.map(sheets.rowToInventario), movimientos: movs.map(sheets.rowToMovimiento).reverse().slice(0, 20) });
@@ -669,19 +683,19 @@ app.post('/inventario', requireAuth, async (req, res) => {
     notas: req.body.notas,
     actualizado: new Date().toISOString().slice(0, 10),
   };
-  await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario', sheets.inventarioToRow(i));
+  await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'inventario', sheets.inventarioToRow(i));
   res.redirect('/inventario');
 });
 
 app.get('/inventario/:row/edit', requireAuth, async (req, res) => {
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario');
+  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'inventario');
   const item = list.map(sheets.rowToInventario).find(x => String(x._row) === String(req.params.row));
   res.render('inventario/form', { title: 'Editar producto', tenant: req.tenant, user: req.user, item, action: `/inventario/${req.params.row}` });
 });
 
 app.post('/inventario/:row/edit', requireAuth, async (req, res) => {
   // method-override not used here; handle update via hidden _method? We'll accept POST with ?_method=PUT too.
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario');
+  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'inventario');
   const existing = list.map(sheets.rowToInventario).find(x => String(x._row) === String(req.params.row));
   if (existing) {
     const i = {
@@ -697,13 +711,13 @@ app.post('/inventario/:row/edit', requireAuth, async (req, res) => {
       notas: req.body.notas,
       actualizado: new Date().toISOString().slice(0, 10),
     };
-    await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario', req.params.row, sheets.inventarioToRow(i));
+    await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'inventario', req.params.row, sheets.inventarioToRow(i));
   }
   res.redirect('/inventario');
 });
 
 app.post('/inventario/:row/movimiento', requireAuth, async (req, res) => {
-  const list = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario');
+  const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'inventario');
   const item = list.map(sheets.rowToInventario).find(x => String(x._row) === String(req.params.row));
   if (item) {
     const cantidad = parseFloat(req.body.cantidad) || 0;
@@ -720,17 +734,17 @@ app.post('/inventario/:row/movimiento', requireAuth, async (req, res) => {
       motivo: req.body.motivo,
       notas: req.body.notas,
     };
-    await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'movimiento', sheets.movimientoToRow(m));
+    await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'movimiento', sheets.movimientoToRow(m));
     // actualizar stock
     item.cantidad = nuevoStock;
     item.actualizado = new Date().toISOString().slice(0, 10);
-    await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario', req.params.row, sheets.inventarioToRow(item));
+    await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'inventario', req.params.row, sheets.inventarioToRow(item));
   }
   res.redirect('/inventario');
 });
 
 app.delete('/inventario/:row', requireAuth, requireRole('admin'), async (req, res) => {
-  await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario', req.params.row);
+  await sheets.deleteRow(req.sheetToken, req.tenant.spreadsheetId, 'inventario', req.params.row);
   res.redirect('/inventario');
 });
 
@@ -813,7 +827,7 @@ app.post('/inventario/importar', requireAuth, async (req, res) => {
       actualizado: new Date().toISOString().slice(0, 10),
     };
     try {
-      await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario', sheets.inventarioToRow(item));
+      await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'inventario', sheets.inventarioToRow(item));
       ok++;
     } catch (e) {
       errores.push(`Fila ${r + 2}: ${e.message}`);
@@ -824,7 +838,7 @@ app.post('/inventario/importar', requireAuth, async (req, res) => {
 
 // Flujo de caja
 app.get('/flujo', requireAuth, async (req, res) => {
-  const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['ingreso', 'egreso']);
+  const data = await sheets.batchGetAll(req.sheetToken, req.tenant.spreadsheetId, ['ingreso', 'egreso']);
   const ingresos = data.ingreso;
   const egresos = data.egreso;
   const movs = [];
@@ -850,7 +864,7 @@ function toCSV(headers, rows) {
 
 app.get('/export/:entity', requireAuth, async (req, res) => {
   const entity = req.params.entity;
-  const rt = req.user.refreshToken;
+  const rt = req.sheetToken;
   const sid = req.tenant.spreadsheetId;
   let headers = [], rows = [], filename = entity + '.csv';
   try {

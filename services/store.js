@@ -67,6 +67,7 @@ const store = {
       rut: data.rut || null,
       spreadsheetId: data.spreadsheetId || null,
       spreadsheetUrl: data.spreadsheetUrl || null,
+      refreshToken: data.refreshToken || null,
       createdAt: new Date().toISOString(),
     };
     db.tenants.push(tenant);
