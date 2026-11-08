@@ -90,6 +90,10 @@ const store = {
     if (!email) return null;
     return read().users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase()) || null;
   },
+  findUserByInviteToken(token) {
+    if (!token) return null;
+    return read().users.find(u => u.inviteToken === token) || null;
+  },
   findUserById(id) {
     return read().users.find(u => u.id === id) || null;
   },
@@ -104,6 +108,7 @@ const store = {
       tenantId: data.tenantId,
       role: data.role || 'admin',
       refreshToken: data.refreshToken || null,
+      inviteToken: data.inviteToken || null,
       createdAt: new Date().toISOString(),
     };
     db.users.push(user);

@@ -903,18 +903,28 @@ app.get('/export/:entity', requireAuth, async (req, res) => {
 app.get('/usuarios', requireAuth, requireRole('admin'), async (req, res) => {
   const data = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'data', 'db.json'), 'utf8'));
   const users = data.users.filter(u => u.tenantId === req.tenant.id);
-  res.render('usuarios/index', { title: 'Usuarios', tenant: req.tenant, user: req.user, usuarios: users });
+  res.render('usuarios/index', {
+    title: 'Usuarios',
+    tenant: req.tenant,
+    user: req.user,
+    usuarios: users,
+    invite: req.query.inviteToken ? { token: req.query.inviteToken, email: req.query.inviteEmail, sent: req.query.sent === '1', reason: req.query.reason } : null,
+  });
 });
 
-app.post('/usuarios', requireAuth, requireRole('admin'), (req, res) => {
+app.post('/usuarios', requireAuth, requireRole('admin'), async (req, res) => {
   const email = (req.body.email || '').trim().toLowerCase();
   if (!email) return res.redirect('/usuarios');
   const storeMod = require('./services/store');
+  const mailer = require('./services/mailer');
   const existing = storeMod.findUserByEmail(email);
+  let inviteToken = null;
   if (existing) {
     if (existing.tenantId !== req.tenant.id) return res.status(400).send('El usuario ya pertenece a otro negocio.');
     storeMod.updateUser(existing.id, { role: req.body.role || existing.role, name: req.body.name || existing.name });
+    inviteToken = existing.inviteToken;
   } else {
+    inviteToken = 'inv_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     storeMod.createUser({
       googleId: null,
       email,
@@ -922,9 +932,18 @@ app.post('/usuarios', requireAuth, requireRole('admin'), (req, res) => {
       tenantId: req.tenant.id,
       role: req.body.role || 'operador',
       refreshToken: null,
+      inviteToken,
     });
   }
-  res.redirect('/usuarios');
+  if (!inviteToken) {
+    inviteToken = 'inv_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    const u = storeMod.findUserByEmail(email);
+    if (u) storeMod.updateUser(u.id, { inviteToken });
+  }
+  const inviteUrl = `${process.env.APP_URL || ('http://localhost:' + (process.env.PORT || 3000))}/auth/google`;
+  const result = await mailer.sendInvite({ to: email, businessName: req.tenant.name, inviteUrl });
+  const sent = result.sent ? '1' : '0';
+  res.redirect(`/usuarios?inviteToken=${encodeURIComponent(inviteToken)}&inviteEmail=${encodeURIComponent(email)}&sent=${sent}&reason=${encodeURIComponent(result.reason || '')}`);
 });
 
 app.post('/usuarios/:id/editar', requireAuth, requireRole('admin'), (req, res) => {

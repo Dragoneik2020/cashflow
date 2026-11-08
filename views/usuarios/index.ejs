@@ -18,6 +18,21 @@
   </form>
 </div>
 
+<% if (invite) { %>
+<div class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded mb-6 text-sm">
+  <% if (invite.sent) { %>
+    <strong>Invitación enviada por correo</strong> a <%= invite.email %>.
+  <% } else { %>
+    <strong>No se pudo enviar correo</strong> (<%= invite.reason || 'SMTP no configurado' %>). Comparte este enlace manualmente:
+  <% } %>
+  <div class="mt-2 flex items-center gap-2">
+    <input id="inviteLink" readonly value="<%= (process.env.APP_URL || 'http://localhost:' + (process.env.PORT||3000)) %>/auth/google" class="flex-1 border rounded px-2 py-1 text-xs bg-white" />
+    <button onclick="navigator.clipboard.writeText(document.getElementById('inviteLink').value)" class="bg-blue-600 text-white px-3 py-1 rounded text-xs">Copiar</button>
+  </div>
+  <p class="mt-2 text-xs">El usuario debe iniciar sesión con Google usando el correo <strong><%= invite.email %></strong> para vincularse automáticamente.</p>
+</div>
+<% } %>
+
 <div class="bg-white rounded-lg shadow overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-600">
