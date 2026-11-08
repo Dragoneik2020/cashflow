@@ -206,9 +206,11 @@ app.get('/dashboard', requireAuth, async (req, res) => {
     const totalIngresos = ingresos.reduce((s, i) => s + (parseFloat(i.Monto) || 0), 0);
     const totalEgresos = egresos.reduce((s, e) => s + (parseFloat(e.Monto) || 0), 0);
     const saldo = totalIngresos - totalEgresos;
+    const ingresosList = data.ingreso.map(sheets.rowToIngreso);
+    const convertidosSet = new Set(ingresosList.filter(i => i.pedidoId).map(i => i.pedidoId));
     const pedidosPendientes = pedidos.filter(p => ['pendiente','en proceso'].includes((p.Estado || '').toLowerCase())).length;
-    const pedidosCompletados = pedidos.filter(p => (p.Estado || '').toLowerCase() === 'completado').length;
-    const pedidosConvertidos = pedidos.filter(p => (p.Estado || '').toLowerCase() === 'convertido a ingreso').length;
+    const pedidosCompletados = pedidos.filter(p => (p.Estado || '').toLowerCase() === 'completado' && !convertidosSet.has(p.id)).length;
+    const pedidosConvertidos = pedidos.filter(p => convertidosSet.has(p.id)).length;
     const pedidosCancelados = pedidos.filter(p => (p.Estado || '').toLowerCase() === 'cancelado').length;
 
     // serie mensual
@@ -300,10 +302,12 @@ app.delete('/proveedores/:row', requireAuth, requireRole('admin'), async (req, r
 
 // Pedidos
 app.get('/pedidos', requireAuth, async (req, res) => {
-  const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['pedido', 'proveedor']);
+  const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['pedido', 'proveedor', 'ingreso']);
   const list = data.pedido;
   const proveedores = data.proveedor;
-  res.render('pedidos/index', { title: 'Pedidos', tenant: req.tenant, user: req.user, pedidos: list.map(sheets.rowToPedido), proveedores: proveedores.map(sheets.rowToProveedor) });
+  const ingresos = data.ingreso.map(sheets.rowToIngreso);
+  const convertidos = new Set(ingresos.filter(i => i.pedidoId).map(i => i.pedidoId));
+  res.render('pedidos/index', { title: 'Pedidos', tenant: req.tenant, user: req.user, pedidos: list.map(sheets.rowToPedido), proveedores: proveedores.map(sheets.rowToProveedor), convertidos });
 });
 
 app.get('/pedidos/nuevo', requireAuth, async (req, res) => {
@@ -362,17 +366,13 @@ app.post('/pedidos/:row/edit', requireAuth, async (req, res) => {
     const ingresos = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso');
     const linked = ingresos.map(sheets.rowToIngreso).find(i => i.pedidoId === existing.id);
     if (linked) {
-      if (existing.estado === 'Convertido a ingreso') {
-        linked.fecha = existing.fecha;
-        linked.concepto = 'Pedido: ' + (existing.descripcion || '');
-        linked.monto = parseFloat(existing.total) || 0;
-        linked.fuente = existing.proveedor || '';
-        linked.notas = existing.notas || '';
-        await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', linked._row, sheets.ingresoToRow(linked));
-      } else {
-        // Si ya no está convertido, eliminar el ingreso vinculado
-        await sheets.deleteRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', linked._row);
-      }
+      // Actualizar el ingreso vinculado para reflejar cambios del pedido
+      linked.fecha = existing.fecha;
+      linked.concepto = 'Pedido: ' + (existing.descripcion || '');
+      linked.monto = parseFloat(existing.total) || 0;
+      linked.fuente = existing.proveedor || '';
+      linked.notas = existing.notas || '';
+      await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', linked._row, sheets.ingresoToRow(linked));
     }
   }
   res.redirect('/pedidos');
@@ -403,7 +403,7 @@ app.post('/pedidos/:row/convertir-ingreso', requireAuth, async (req, res) => {
       pedidoId: existing.id,
     };
     await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'ingreso', sheets.ingresoToRow(i));
-    existing.estado = 'Convertido a ingreso';
+    existing.estado = 'Completado';
     await sheets.updateRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', req.params.row, sheets.pedidoToRow(existing));
   }
   res.redirect('/ingresos');

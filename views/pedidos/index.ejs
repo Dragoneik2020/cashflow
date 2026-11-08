@@ -34,7 +34,7 @@
         <td class="p-3">
           <form action="/pedidos/<%= p._row %>/estado" method="POST" class="inline">
             <select name="estado" onchange="this.form.submit()" class="border rounded px-2 py-1 text-xs">
-              <% ['Pendiente','En proceso','Completado','Cancelado','Convertido a ingreso'].forEach(e => { %>
+              <% ['Pendiente','En proceso','Completado','Cancelado'].forEach(e => { %>
                 <option value="<%= e %>" <%= p.estado===e?'selected':'' %>><%= e %></option>
               <% }) %>
             </select>
@@ -42,7 +42,7 @@
         </td>
         <td class="p-3 text-right space-x-1">
           <a href="/pedidos/<%= p._row %>/edit" class="text-blue-600 hover:underline text-xs">Editar</a>
-          <% if (p.estado !== 'Convertido a ingreso') { %>
+          <% if (!convertidos.has(p.id)) { %>
           <form action="/pedidos/<%= p._row %>/convertir-ingreso" method="POST" class="inline" onsubmit="return confirm('¿Pasar el monto del pedido a Ingresos?')">
             <button class="text-green-600 hover:underline text-xs">→ Ingreso</button>
           </form>

@@ -33,7 +33,7 @@
     <div>
       <label class="block text-sm font-medium mb-1">Estado</label>
       <select name="estado" class="w-full border rounded px-3 py-2">
-        <% ['Pendiente','En proceso','Completado','Cancelado','Convertido a ingreso'].forEach(e => { %>
+        <% ['Pendiente','En proceso','Completado','Cancelado'].forEach(e => { %>
           <option value="<%= e %>" <%= pedido && pedido.estado===e?'selected':'' %>><%= e %></option>
         <% }) %>
       </select>
