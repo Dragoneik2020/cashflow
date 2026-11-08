@@ -1015,6 +1015,35 @@ app.post('/settings', requireAuth, requireRole('admin'), (req, res) => {
   res.redirect('/settings');
 });
 
+// Importar base de datos local (solo super admin) - migración one-time
+app.get('/admin/import-db', requireAuth, requireSuperAdmin, (req, res) => {
+  res.render('admin/import-db', { title: 'Importar base de datos', tenant: req.tenant, user: req.user, mensaje: null, error: null });
+});
+
+app.post('/admin/import-db', requireAuth, requireSuperAdmin, (req, res) => {
+  const raw = (req.body.json || '').trim();
+  if (!raw) {
+    return res.render('admin/import-db', { title: 'Importar base de datos', tenant: req.tenant, user: req.user, mensaje: null, error: 'Pega el contenido del archivo db.json.' });
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+    if (!parsed.tenants || !parsed.users) throw new Error('Formato inválido: se esperan tenants y users.');
+  } catch (e) {
+    return res.render('admin/import-db', { title: 'Importar base de datos', tenant: req.tenant, user: req.user, mensaje: null, error: 'JSON inválido: ' + e.message });
+  }
+  const fs = require('fs');
+  const path = require('path');
+  const file = path.join(__dirname, 'data', 'db.json');
+  try {
+    if (!fs.existsSync(path.join(__dirname, 'data'))) fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(parsed, null, 2));
+    return res.render('admin/import-db', { title: 'Importar base de datos', tenant: req.tenant, user: req.user, mensaje: 'Base de datos importada correctamente. Cierra sesión y vuelve a entrar.', error: null });
+  } catch (e) {
+    return res.render('admin/import-db', { title: 'Importar base de datos', tenant: req.tenant, user: req.user, mensaje: null, error: 'Error escribiendo archivo: ' + e.message });
+  }
+});
+
 // Settings
 app.get('/settings', requireAuth, (req, res) => {
   res.render('settings', { title: 'Configuración', tenant: req.tenant, user: req.user });
