@@ -206,11 +206,8 @@ app.get('/dashboard', requireAuth, async (req, res) => {
     const totalIngresos = ingresos.reduce((s, i) => s + (parseFloat(i.Monto) || 0), 0);
     const totalEgresos = egresos.reduce((s, e) => s + (parseFloat(e.Monto) || 0), 0);
     const saldo = totalIngresos - totalEgresos;
-    const ingresosList = data.ingreso.map(sheets.rowToIngreso);
-    const convertidosSet = new Set(ingresosList.filter(i => i.pedidoId).map(i => i.pedidoId));
     const pedidosPendientes = pedidos.filter(p => ['pendiente','en proceso'].includes((p.Estado || '').toLowerCase())).length;
-    const pedidosCompletados = pedidos.filter(p => (p.Estado || '').toLowerCase() === 'completado' && !convertidosSet.has(p.id)).length;
-    const pedidosConvertidos = pedidos.filter(p => convertidosSet.has(p.id)).length;
+    const pedidosCompletados = pedidos.filter(p => (p.Estado || '').toLowerCase() === 'completado').length;
     const pedidosCancelados = pedidos.filter(p => (p.Estado || '').toLowerCase() === 'cancelado').length;
 
     // serie mensual
@@ -233,7 +230,7 @@ app.get('/dashboard', requireAuth, async (req, res) => {
       title: 'Dashboard',
       tenant: req.tenant,
       user: req.user,
-      totalIngresos, totalEgresos, saldo, pedidosPendientes, pedidosCompletados, pedidosConvertidos, pedidosCancelados,
+      totalIngresos, totalEgresos, saldo, pedidosPendientes, pedidosCompletados, pedidosCancelados,
       numProveedores: proveedores.length,
       series: JSON.stringify(series),
       ultimosIngresos: ingresos.slice(-5).reverse(),
