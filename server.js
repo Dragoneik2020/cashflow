@@ -497,6 +497,7 @@ app.post('/pedidos', requireAuth, async (req, res) => {
     total: cantidad * precio,
     estado: req.body.estado || 'Pendiente',
     inventarioId,
+    cantDescontada: inventarioId && cantDescontar > 0 ? cantDescontar : 0,
     notas: req.body.notas,
   };
   await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'pedido', sheets.pedidoToRow(p));
@@ -539,10 +540,29 @@ app.post('/pedidos/:row/edit', requireAuth, async (req, res) => {
   const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'pedido');
   const existing = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));
   if (existing) {
-    const proveedores = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'proveedor');
+    const data = await sheets.batchGetAll(req.sheetToken, req.tenant.spreadsheetId, ['proveedor', 'inventario']);
+    const proveedores = data.proveedor;
+    const inventario = data.inventario.map(sheets.rowToInventario);
     const prov = proveedores.map(sheets.rowToProveedor).find(p => p.id === req.body.proveedorId);
     const cantidad = parseFloat(req.body.cantidad) || 0;
     const precio = parseFloat(req.body.precioUnit) || 0;
+    const newInvId = (req.body.inventarioId || '').trim();
+    const newCant = parseFloat(req.body.cantDescontar) || 0;
+
+    // Revertir deducción anterior si existía
+    const oldInvId = existing.inventarioId;
+    const oldCant = existing.cantDescontada || 0;
+    if (oldInvId && oldCant > 0) {
+      const oldItem = inventario.find(i => i.id === oldInvId);
+      if (oldItem) {
+        const m = { id: sheets.uuidv4(), fecha: new Date().toISOString().slice(0, 10), productoId: oldItem.id, producto: oldItem.producto, tipo: 'Entrada', cantidad: oldCant, motivo: 'Ajuste edición pedido', notas: '' };
+        await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'movimiento', sheets.movimientoToRow(m));
+        oldItem.cantidad = (parseFloat(oldItem.cantidad) || 0) + oldCant;
+        oldItem.actualizado = new Date().toISOString().slice(0, 10);
+        await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'inventario', oldItem._row, sheets.inventarioToRow(oldItem));
+      }
+    }
+
     existing.fecha = req.body.fecha || existing.fecha;
     existing.proveedorId = req.body.proveedorId;
     existing.proveedor = prov ? prov.nombre : req.body.proveedor;
@@ -552,14 +572,27 @@ app.post('/pedidos/:row/edit', requireAuth, async (req, res) => {
     existing.total = cantidad * precio;
     existing.estado = req.body.estado || existing.estado;
     existing.notas = req.body.notas;
-    existing.inventarioId = (req.body.inventarioId || '').trim();
+    existing.inventarioId = newInvId;
+    existing.cantDescontada = (newInvId && newCant > 0) ? newCant : 0;
+
+    // Aplicar nueva deducción si corresponde
+    if (newInvId && newCant > 0) {
+      const newItem = inventario.find(i => i.id === newInvId);
+      if (newItem) {
+        const m = { id: sheets.uuidv4(), fecha: new Date().toISOString().slice(0, 10), productoId: newItem.id, producto: newItem.producto, tipo: 'Salida', cantidad: newCant, motivo: 'Pedido: ' + (existing.descripcion || ''), notas: existing.notas || '' };
+        await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'movimiento', sheets.movimientoToRow(m));
+        newItem.cantidad = (parseFloat(newItem.cantidad) || 0) - newCant;
+        newItem.actualizado = new Date().toISOString().slice(0, 10);
+        await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'inventario', newItem._row, sheets.inventarioToRow(newItem));
+      }
+    }
+
     await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'pedido', req.params.row, sheets.pedidoToRow(existing));
 
-    // Sincronizar con ingreso vinculado (si el pedido estaba convertido a ingreso)
+    // Sincronizar con ingreso vinculado
     const ingresos = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'ingreso');
     const linked = ingresos.map(sheets.rowToIngreso).find(i => i.pedidoId === existing.id);
     if (linked) {
-      // Actualizar el ingreso vinculado para reflejar cambios del pedido
       linked.fecha = existing.fecha;
       linked.concepto = 'Pedido: ' + (existing.descripcion || '');
       linked.monto = parseFloat(existing.total) || 0;
@@ -606,6 +639,18 @@ app.delete('/pedidos/:row', requireAuth, requireRole('admin'), async (req, res) 
   const list = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'pedido');
   const ped = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));
   if (ped && ped.id) {
+    // Restaurar stock si se había descontado
+    if (ped.inventarioId && ped.cantDescontada > 0) {
+      const inventario = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'inventario');
+      const item = inventario.map(sheets.rowToInventario).find(i => i.id === ped.inventarioId);
+      if (item) {
+        const m = { id: sheets.uuidv4(), fecha: new Date().toISOString().slice(0, 10), productoId: item.id, producto: item.producto, tipo: 'Entrada', cantidad: ped.cantDescontada, motivo: 'Eliminación de pedido', notas: '' };
+        await sheets.appendRow(req.sheetToken, req.tenant.spreadsheetId, 'movimiento', sheets.movimientoToRow(m));
+        item.cantidad = (parseFloat(item.cantidad) || 0) + ped.cantDescontada;
+        item.actualizado = new Date().toISOString().slice(0, 10);
+        await sheets.updateRow(req.sheetToken, req.tenant.spreadsheetId, 'inventario', item._row, sheets.inventarioToRow(item));
+      }
+    }
     // Eliminar ingreso vinculado si existe
     const ingresos = await sheets.getAll(req.sheetToken, req.tenant.spreadsheetId, 'ingreso');
     const linked = ingresos.map(sheets.rowToIngreso).find(i => i.pedidoId === ped.id);
