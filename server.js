@@ -585,6 +585,94 @@ app.delete('/inventario/:row', requireAuth, requireRole('admin'), async (req, re
   res.redirect('/inventario');
 });
 
+app.get('/inventario/importar', requireAuth, (req, res) => {
+  res.render('inventario/importar', { title: 'Importar inventario', tenant: req.tenant, user: req.user, resultado: null });
+});
+
+app.post('/inventario/importar', requireAuth, async (req, res) => {
+  const csv = (req.body.csv || '').trim();
+  if (!csv) {
+    return res.render('inventario/importar', { title: 'Importar inventario', tenant: req.tenant, user: req.user, resultado: { ok: 0, errores: ['No se recibió contenido CSV.'] } });
+  }
+  // Parser CSV simple con soporte de comillas
+  function parseCSV(text) {
+    const lines = text.replace(/\\r\\n/g, '\\n').replace(/\\r/g, '\\n').split('\\n').filter(l => l.trim() !== '');
+    const rows = [];
+    for (const line of lines) {
+      const fields = [];
+      let cur = '';
+      let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (inQ) {
+          if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+          else if (ch === '"') { inQ = false; }
+          else { cur += ch; }
+        } else {
+          if (ch === '"') { inQ = true; }
+          else if (ch === ',') { fields.push(cur); cur = ''; }
+          else { cur += ch; }
+        }
+      }
+      fields.push(cur);
+      rows.push(fields.map(f => f.trim()));
+    }
+    return rows;
+  }
+
+  const rows = parseCSV(csv);
+  // Detectar encabezado
+  const header = rows[0].map(h => h.toLowerCase());
+  const hasHeader = header.includes('producto');
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+
+  const colIndex = (name) => {
+    const idx = header.indexOf(name);
+    return idx === -1 ? null : idx;
+  };
+  // mapeo de columnas por nombre o por posición por defecto
+  const iProducto = hasHeader ? colIndex('producto') : 0;
+  const iCategoria = hasHeader ? colIndex('categoria') : 1;
+  const iCantidad = hasHeader ? colIndex('cantidad') : 2;
+  const iUnidad = hasHeader ? colIndex('unidad') : 3;
+  const iCosto = hasHeader ? colIndex('preciocosto') !== null ? colIndex('preciocosto') : colIndex('precio_costo') : 4;
+  const iVenta = hasHeader ? (colIndex('precioventa') !== null ? colIndex('precioventa') : colIndex('precio_venta')) : 5;
+  const iProveedor = hasHeader ? colIndex('proveedor') : 6;
+  const iMinimo = hasHeader ? (colIndex('stockminimo') !== null ? colIndex('stockminimo') : colIndex('stock_minimo')) : 7;
+  const iNotas = hasHeader ? colIndex('notas') : 8;
+
+  const get = (row, idx, def = '') => (idx === null || idx >= row.length) ? def : (row[idx] || def);
+
+  let ok = 0;
+  const errores = [];
+  for (let r = 0; r < dataRows.length; r++) {
+    const row = dataRows[r];
+    if (row.every(c => c === '')) continue;
+    const producto = get(row, iProducto);
+    if (!producto) { errores.push(`Fila ${r + 2}: falta Producto.`); continue; }
+    const item = {
+      id: sheets.uuidv4(),
+      producto,
+      categoria: get(row, iCategoria),
+      cantidad: parseFloat(get(row, iCantidad, '0')) || 0,
+      unidad: get(row, iUnidad, 'uds') || 'uds',
+      precioCosto: parseFloat(get(row, iCosto, '0')) || 0,
+      precioVenta: parseFloat(get(row, iVenta, '0')) || 0,
+      proveedor: get(row, iProveedor),
+      stockMinimo: parseFloat(get(row, iMinimo, '0')) || 0,
+      notas: get(row, iNotas),
+      actualizado: new Date().toISOString().slice(0, 10),
+    };
+    try {
+      await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'inventario', sheets.inventarioToRow(item));
+      ok++;
+    } catch (e) {
+      errores.push(`Fila ${r + 2}: ${e.message}`);
+    }
+  }
+  res.render('inventario/importar', { title: 'Importar inventario', tenant: req.tenant, user: req.user, resultado: { ok, errores, total: dataRows.length } });
+});
+
 // Flujo de caja
 app.get('/flujo', requireAuth, async (req, res) => {
   const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['ingreso', 'egreso']);
