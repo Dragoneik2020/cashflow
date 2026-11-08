@@ -1,0 +1,49 @@
+<!-- views/pedidos/detail.ejs -->
+<%- include('../partials/header') %>
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">Detalle del pedido</h1>
+  <div class="flex flex-wrap gap-2">
+    <a href="/pedidos" class="px-4 py-2 rounded border text-sm">← Volver</a>
+    <a href="/pedidos/<%= pedido._row %>/edit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">Editar</a>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow p-6 max-w-3xl space-y-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div><div class="text-sm text-gray-500">Fecha</div><div class="font-medium"><%= pedido.fecha %></div></div>
+    <div><div class="text-sm text-gray-500">Estado</div><div class="font-medium"><%= pedido.estado %></div></div>
+    <div><div class="text-sm text-gray-500">Proveedor</div><div class="font-medium"><%= pedido.proveedor || '—' %></div></div>
+    <div><div class="text-sm text-gray-500">Descripción</div><div class="font-medium"><%= pedido.descripcion %></div></div>
+    <div><div class="text-sm text-gray-500">Cantidad</div><div class="font-medium"><%= pedido.cantidad %></div></div>
+    <div><div class="text-sm text-gray-500">Precio unitario</div><div class="font-medium"><%= money(pedido.precioUnit) %></div></div>
+    <div><div class="text-sm text-gray-500">Total</div><div class="font-bold text-lg text-blue-600"><%= money(pedido.total) %></div></div>
+    <div><div class="text-sm text-gray-500">Notas</div><div><%= pedido.notas || '—' %></div></div>
+  </div>
+
+  <% if (prod) { %>
+  <div class="pt-4 border-t">
+    <h3 class="font-semibold mb-2">Inventario vinculado</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div><div class="text-sm text-gray-500">Producto</div><div class="font-medium"><%= prod.producto %></div></div>
+      <div><div class="text-sm text-gray-500">Stock actual</div><div class="font-medium"><%= prod.cantidad %> <%= prod.unidad %></div></div>
+      <div><div class="text-sm text-gray-500">Cantidad descontada</div><div class="font-medium"><%= pedido.cantDescontada %></div></div>
+    </div>
+  </div>
+  <% } %>
+
+  <% if (linked) { %>
+  <div class="pt-4 border-t">
+    <h3 class="font-semibold mb-2">Ingreso vinculado</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div><div class="text-sm text-gray-500">Concepto</div><div class="font-medium"><%= linked.concepto %></div></div>
+      <div><div class="text-sm text-gray-500">Monto</div><div class="font-bold text-green-600"><%= money(linked.monto) %></div></div>
+      <div><div class="text-sm text-gray-500">Fecha</div><div><%= linked.fecha %></div></div>
+      <div><div class="text-sm text-gray-500">Categoría</div><div><%= linked.categoria %></div></div>
+    </div>
+    <div class="mt-3">
+      <a href="/ingresos" class="text-blue-600 hover:underline text-sm">Ver en Ingresos →</a>
+    </div>
+  </div>
+  <% } %>
+</div>
+<%- include('../partials/footer') %>

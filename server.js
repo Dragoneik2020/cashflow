@@ -527,6 +527,20 @@ app.post('/pedidos', requireAuth, async (req, res) => {
   res.redirect('/pedidos');
 });
 
+app.get('/pedidos/:row', requireAuth, async (req, res) => {
+  const data = await sheets.batchGetAll(req.sheetToken, req.tenant.spreadsheetId, ['pedido', 'proveedor', 'ingreso', 'inventario']);
+  const list = data.pedido;
+  const pedido = list.map(sheets.rowToPedido).find(p => String(p._row) === String(req.params.row));
+  if (!pedido) return res.status(404).send('Pedido no encontrado');
+  const proveedores = data.proveedor.map(sheets.rowToProveedor);
+  const proveedor = proveedores.find(p => p.id === pedido.proveedorId) || null;
+  const ingresos = data.ingreso.map(sheets.rowToIngreso);
+  const linked = ingresos.find(i => i.pedidoId === pedido.id) || null;
+  const inventario = data.inventario.map(sheets.rowToInventario);
+  const prod = inventario.find(i => i.id === pedido.inventarioId) || null;
+  res.render('pedidos/detail', { title: 'Pedido · ' + (pedido.descripcion || ''), tenant: req.tenant, user: req.user, pedido, proveedor, linked, prod });
+});
+
 app.get('/pedidos/:row/edit', requireAuth, async (req, res) => {
   const data = await sheets.batchGetAll(req.sheetToken, req.tenant.spreadsheetId, ['pedido', 'proveedor', 'inventario']);
   const list = data.pedido;
