@@ -2,10 +2,25 @@ version: "3.9"
 services:
   cashflow:
     build: .
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     env_file:
       - .env
     volumes:
       - ./data:/app/data
     restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

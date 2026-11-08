@@ -1,0 +1,3 @@
+app.tudominio.com {
+    reverse_proxy cashflow:3000
+}
