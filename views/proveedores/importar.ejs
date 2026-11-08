@@ -1,0 +1,46 @@
+<!-- views/proveedores/importar.ejs -->
+<%- include('../partials/header') %>
+<h1 class="text-2xl font-bold mb-4">Importar proveedores desde CSV</h1>
+
+<div class="bg-white rounded-lg shadow p-6 max-w-4xl space-y-4">
+  <% if (resultado) { %>
+    <div class="px-4 py-3 rounded text-sm <%= resultado.errores && resultado.errores.length ? 'bg-amber-50 border border-amber-200 text-amber-800' : 'bg-green-50 border border-green-200 text-green-800' %>">
+      Importados: <strong><%= resultado.ok %></strong><% if (resultado.total !== undefined) { %> de <%= resultado.total %><% } %>.
+      <% if (resultado.errores && resultado.errores.length) { %>
+        <ul class="mt-2 list-disc list-inside"><% resultado.errores.forEach(e => { %><li><%= e %></li><% }) %></ul>
+      <% } %>
+      <div class="mt-3"><a href="/proveedores" class="text-blue-600 hover:underline">Volver a proveedores</a></div>
+    </div>
+  <% } %>
+
+  <p class="text-sm text-gray-600">Formato CSV (primera fila puede ser encabezado). Columnas:
+    <code class="bg-gray-100 px-1">Nombre, RUT, Contacto, Teléfono, Email, Dirección, Notas</code>
+  </p>
+  <p class="text-sm"><a href="/plantilla-proveedores.csv" download class="text-blue-600 hover:underline">⬇ Descargar plantilla CSV de ejemplo</a></p>
+
+  <form action="/proveedores/importar" method="POST" class="space-y-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Pegar CSV</label>
+      <textarea name="csv" id="csvText" rows="12" class="w-full border rounded px-3 py-2 font-mono text-sm"></textarea>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">O cargar archivo CSV</label>
+      <input type="file" id="csvFile" accept=".csv,text/csv" class="border rounded px-3 py-2 w-full" />
+    </div>
+    <div class="flex gap-2">
+      <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Importar</button>
+      <a href="/proveedores" class="px-4 py-2 rounded border">Cancelar</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.getElementById('csvFile').addEventListener('change', function(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) { document.getElementById('csvText').value = ev.target.result; };
+    reader.readAsText(file);
+  });
+</script>
+<%- include('../partials/footer') %>

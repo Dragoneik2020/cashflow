@@ -297,6 +297,155 @@ app.delete('/proveedores/:row', requireAuth, requireRole('admin'), async (req, r
   res.redirect('/proveedores');
 });
 
+// Importar proveedores
+app.get('/proveedores/importar', requireAuth, (req, res) => {
+  res.render('proveedores/importar', { title: 'Importar proveedores', tenant: req.tenant, user: req.user, resultado: null });
+});
+
+app.post('/proveedores/importar', requireAuth, async (req, res) => {
+  const csv = (req.body.csv || '').trim();
+  if (!csv) {
+    return res.render('proveedores/importar', { title: 'Importar proveedores', tenant: req.tenant, user: req.user, resultado: { ok: 0, errores: ['No se recibió contenido CSV.'] } });
+  }
+  function parseCSV(text) {
+    const lines = text.replace(/\\r\\n/g, '\\n').replace(/\\r/g, '\\n').split('\\n').filter(l => l.trim() !== '');
+    const rows = [];
+    for (const line of lines) {
+      const fields = []; let cur = ''; let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (inQ) {
+          if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+          else if (ch === '"') { inQ = false; }
+          else { cur += ch; }
+        } else {
+          if (ch === '"') { inQ = true; }
+          else if (ch === ',') { fields.push(cur); cur = ''; }
+          else { cur += ch; }
+        }
+      }
+      fields.push(cur);
+      rows.push(fields.map(f => f.trim()));
+    }
+    return rows;
+  }
+  const rows = parseCSV(csv);
+  const header = rows[0].map(h => h.toLowerCase());
+  const hasHeader = header.includes('nombre');
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+  const ci = (name) => { const i = header.indexOf(name); return i === -1 ? null : i; };
+  const iNombre = hasHeader ? ci('nombre') : 0;
+  const iRut = hasHeader ? ci('rut') : 1;
+  const iContacto = hasHeader ? ci('contacto') : 2;
+  const iTelefono = hasHeader ? ci('telefono') : 3;
+  const iEmail = hasHeader ? ci('email') : 4;
+  const iDireccion = hasHeader ? ci('direccion') : 5;
+  const iNotas = hasHeader ? ci('notas') : 6;
+  const get = (row, idx, def = '') => (idx === null || idx >= row.length) ? def : (row[idx] || def);
+
+  let ok = 0; const errores = [];
+  for (let r = 0; r < dataRows.length; r++) {
+    const row = dataRows[r];
+    if (row.every(c => c === '')) continue;
+    const nombre = get(row, iNombre);
+    if (!nombre) { errores.push(`Fila ${r + 2}: falta Nombre.`); continue; }
+    const p = {
+      id: sheets.uuidv4(),
+      nombre,
+      rut: get(row, iRut),
+      contacto: get(row, iContacto),
+      telefono: get(row, iTelefono),
+      email: get(row, iEmail),
+      direccion: get(row, iDireccion),
+      notas: get(row, iNotas),
+      creado: new Date().toISOString().slice(0, 10),
+    };
+    try {
+      await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor', sheets.proveedorToRow(p));
+      ok++;
+    } catch (e) { errores.push(`Fila ${r + 2}: ${e.message}`); }
+  }
+  res.render('proveedores/importar', { title: 'Importar proveedores', tenant: req.tenant, user: req.user, resultado: { ok, errores, total: dataRows.length } });
+});
+
+// Importar pedidos
+app.get('/pedidos/importar', requireAuth, async (req, res) => {
+  const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor');
+  res.render('pedidos/importar', { title: 'Importar pedidos', tenant: req.tenant, user: req.user, proveedores: proveedores.map(sheets.rowToProveedor), resultado: null });
+});
+
+app.post('/pedidos/importar', requireAuth, async (req, res) => {
+  const csv = (req.body.csv || '').trim();
+  const proveedores = await sheets.getAll(req.user.refreshToken, req.tenant.spreadsheetId, 'proveedor').then(r => r.map(sheets.rowToProveedor));
+  if (!csv) {
+    return res.render('pedidos/importar', { title: 'Importar pedidos', tenant: req.tenant, user: req.user, proveedores, resultado: { ok: 0, errores: ['No se recibió contenido CSV.'] } });
+  }
+  function parseCSV(text) {
+    const lines = text.replace(/\\r\\n/g, '\\n').replace(/\\r/g, '\\n').split('\\n').filter(l => l.trim() !== '');
+    const rows = [];
+    for (const line of lines) {
+      const fields = []; let cur = ''; let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (inQ) {
+          if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+          else if (ch === '"') { inQ = false; }
+          else { cur += ch; }
+        } else {
+          if (ch === '"') { inQ = true; }
+          else if (ch === ',') { fields.push(cur); cur = ''; }
+          else { cur += ch; }
+        }
+      }
+      fields.push(cur);
+      rows.push(fields.map(f => f.trim()));
+    }
+    return rows;
+  }
+  const rows = parseCSV(csv);
+  const header = rows[0].map(h => h.toLowerCase());
+  const hasHeader = header.includes('descripcion') || header.includes('descripción');
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+  const ci = (name) => { const i = header.indexOf(name); return i === -1 ? null : i; };
+  const iFecha = hasHeader ? ci('fecha') : 0;
+  const iProveedor = hasHeader ? ci('proveedor') : 1;
+  const iDescripcion = hasHeader ? (ci('descripcion') !== null ? ci('descripcion') : ci('descripción')) : 2;
+  const iCantidad = hasHeader ? ci('cantidad') : 3;
+  const iPrecio = hasHeader ? (ci('preciounit') !== null ? ci('preciounit') : ci('precio_unit')) : 4;
+  const iEstado = hasHeader ? ci('estado') : 5;
+  const iNotas = hasHeader ? ci('notas') : 6;
+  const get = (row, idx, def = '') => (idx === null || idx >= row.length) ? def : (row[idx] || def);
+
+  let ok = 0; const errores = [];
+  for (let r = 0; r < dataRows.length; r++) {
+    const row = dataRows[r];
+    if (row.every(c => c === '')) continue;
+    const descripcion = get(row, iDescripcion);
+    if (!descripcion) { errores.push(`Fila ${r + 2}: falta Descripción.`); continue; }
+    const provName = get(row, iProveedor);
+    const prov = proveedores.find(p => p.nombre.toLowerCase() === provName.toLowerCase());
+    const cantidad = parseFloat(get(row, iCantidad, '1')) || 0;
+    const precio = parseFloat(get(row, iPrecio, '0')) || 0;
+    const p = {
+      id: sheets.uuidv4(),
+      fecha: get(row, iFecha) || new Date().toISOString().slice(0, 10),
+      proveedorId: prov ? prov.id : '',
+      proveedor: prov ? prov.nombre : provName,
+      descripcion,
+      cantidad,
+      precioUnit: precio,
+      total: cantidad * precio,
+      estado: get(row, iEstado) || 'Pendiente',
+      notas: get(row, iNotas),
+    };
+    try {
+      await sheets.appendRow(req.user.refreshToken, req.tenant.spreadsheetId, 'pedido', sheets.pedidoToRow(p));
+      ok++;
+    } catch (e) { errores.push(`Fila ${r + 2}: ${e.message}`); }
+  }
+  res.render('pedidos/importar', { title: 'Importar pedidos', tenant: req.tenant, user: req.user, proveedores, resultado: { ok, errores, total: dataRows.length } });
+});
+
 // Pedidos
 app.get('/pedidos', requireAuth, async (req, res) => {
   const data = await sheets.batchGetAll(req.user.refreshToken, req.tenant.spreadsheetId, ['pedido', 'proveedor', 'ingreso']);
