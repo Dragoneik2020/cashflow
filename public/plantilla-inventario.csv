@@ -1,0 +1,6 @@
+Producto,Categoria,Cantidad,Unidad,PrecioCosto,PrecioVenta,Proveedor,StockMinimo,Notas
+Tornillo 1/4,Ferretería,100,uds,50,80,Acme,20,Caja de 100 unidades
+Martillo,Herramientas,5,uds,3000,4500,Acme,2,Mango de madera
+Pintura blanca 1L,Pinturas,10,lts,2500,3800,Pinturas SA,3,Balde de 1 litro
+Guantes de trabajo,Seguridad,20,par,1200,1800,Seguridad Total,5,Talla M
+Cable 2.5mm,Electricidad,50,m,150,250,Electro SA,10,Rollo 100m
